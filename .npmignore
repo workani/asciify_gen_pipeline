@@ -1,0 +1,10 @@
+node_modules/
+state.sqlite*
+src/state.sqlite*
+test/
+runs/
+out/
+prompts/
+seeds/
+opencode-chat.txt
+.DS_Store

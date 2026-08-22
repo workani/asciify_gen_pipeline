@@ -1,0 +1,9 @@
+node_modules/
+state.sqlite*
+src/state.sqlite*
+test/*.sqlite*
+runs/*.jsonl
+runs/render/*
+out/*
+!.gitkeep
+.DS_Store

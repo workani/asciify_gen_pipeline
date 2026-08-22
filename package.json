@@ -1,0 +1,25 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "description": "Checkpointed vision-LLM dataset factory for Asciify Unicode search",
+  "bin": {
+    "generator": "bin/generator.mjs"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1",
+    "test:harness": "GEN_TEST_FULL_HARNESS=1 node --test test/harness.test.mjs",
+    "dump": "node scripts/dataset-dump.mjs",
+    "plan": "node bin/generator.mjs plan",
+    "status": "node bin/generator.mjs status",
+    "start": "node bin/generator.mjs tui"
+  },
+  "keywords": [],
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "pngjs": "^7.0.0"
+  }
+}

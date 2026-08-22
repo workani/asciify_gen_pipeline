@@ -1,0 +1,3 @@
+{"query":"right triangle arrow","target_kind":"character","target_key":"9654","thief_keys":["10148"],"candidate_keys":["11246"],"count":31,"severity":5,"source":"production-events"}
+{"query":"hamburger menu icon","target_kind":"character","target_key":"9776","thief_keys":["127828"],"count":12,"severity":5,"source":"production-events"}
+{"query":"greek flag","target_kind":"emoji_sequence","target_key":"1f1ec-1f1f7","thief_keys":["128673"],"count":9,"severity":5,"source":"production-events"}
