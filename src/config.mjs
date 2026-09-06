@@ -1,6 +1,11 @@
+import { TAXONOMY_VERSION, SUBFAMILIES } from './taxonomy.mjs';
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { RECORD_DRAFT_SYSTEM, RECORD_REVIEW_SYSTEM, RECORD_DISCOVERY_SYSTEM, RECORD_VOCABULARY_SYSTEM } from "./prompts-records.mjs";
+import { PROPERTY_KEYS, FAMILIES, RECORD_SCHEMA_VERSION } from "./records.mjs";
+import { INTENTS, REGISTERS, VOCABULARY_CONTRACT_VERSION } from "./record-vocabulary.mjs";
 import { resolveChromeBin, resolveOpencodeBin } from "./binaries.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,38 +21,46 @@ function existingOrNull(paths) {
   return paths.find((path) => path && existsSync(path)) ?? null;
 }
 
-export const PIPELINE_VERSION = "2026-08-22.factory-v7-adaptive-two-call";
+export const PIPELINE_VERSION = "2026-09-05.factory-v8-embedding-records";
+const LEGACY_VERSION = "2026-08-22.factory-v7-adaptive-two-call";
+const MODEL = process.env.GEN_MODEL ?? "opencode/muse-spark-1.3-contributor-free";
+const RECORD_REVISION = createHash("sha256").update(JSON.stringify({
+  schema: RECORD_SCHEMA_VERSION, taxonomy: TAXONOMY_VERSION, subfamilies: SUBFAMILIES, writer: RECORD_DRAFT_SYSTEM, reviewer: RECORD_REVIEW_SYSTEM, discovery: RECORD_DISCOVERY_SYSTEM, vocabularyReviewer: RECORD_VOCABULARY_SYSTEM,
+  vocabularyContract: VOCABULARY_CONTRACT_VERSION, intents: INTENTS, registers: REGISTERS, families: FAMILIES,
+  properties: PROPERTY_KEYS, model: MODEL, variant: process.env.GEN_MODEL_VARIANT ?? "medium",
+})).digest("hex").slice(0, 16);
 
 export const STAGE_VERSIONS = Object.freeze({
-  select: `${PIPELINE_VERSION}.select-v1`,
+  select: `${PIPELINE_VERSION}.select-v2-family-priority`,
+  records: `${PIPELINE_VERSION}.records-${RECORD_REVISION}`,
   // One dual-vendor contrastive generation call plus one name/image-blind
   // recovery call. Never mix the former six-vote evidence into this contract.
-  blind_ground: `${PIPELINE_VERSION}.blind-ground-v5-adaptive-two-call`,
-  enrich: `${PIPELINE_VERSION}.enrich-v6-fresh-context`,
-  contrast: `${PIPELINE_VERSION}.contrast-v1-top5`,
-  verify: `${PIPELINE_VERSION}.verify-v5-fresh-context`,
-  rewrite: `${PIPELINE_VERSION}.rewrite-v3-gap-only`,
-  reverify: `${PIPELINE_VERSION}.reverify-v4-fresh-context`,
-  recover: `${PIPELINE_VERSION}.recover-v1-name-image-blind`,
-  synth: `${PIPELINE_VERSION}.synth-v5-per-claim`,
-  adjudicate: `${PIPELINE_VERSION}.adjudicate-v2-batched`,
-  roundtrip: `${PIPELINE_VERSION}.roundtrip-v1`,
-  publish: `${PIPELINE_VERSION}.publish-v1`,
+  blind_ground: `${LEGACY_VERSION}.blind-ground-v5-adaptive-two-call`,
+  enrich: `${LEGACY_VERSION}.enrich-v6-fresh-context`,
+  contrast: `${LEGACY_VERSION}.contrast-v1-top5`,
+  verify: `${LEGACY_VERSION}.verify-v5-fresh-context`,
+  rewrite: `${LEGACY_VERSION}.rewrite-v3-gap-only`,
+  reverify: `${LEGACY_VERSION}.reverify-v4-fresh-context`,
+  recover: `${LEGACY_VERSION}.recover-v1-name-image-blind`,
+  synth: `${LEGACY_VERSION}.synth-v5-per-claim`,
+  adjudicate: `${LEGACY_VERSION}.adjudicate-v2-batched`,
+  roundtrip: `${LEGACY_VERSION}.roundtrip-v1`,
+  publish: `${LEGACY_VERSION}.publish-v1`,
 });
 
 export const config = {
   root: ROOT,
   asciifyRoot: ASCIIFY,
   refDb: resolve(process.env.GEN_REF_DB ?? resolve(ASCIIFY, "gen", "out", "ref.db")),
-  model: process.env.GEN_MODEL ?? "opencode/x-preview-f-free",
-  modelVariant: process.env.GEN_MODEL_VARIANT ?? "low",
+  model: MODEL,
+  modelVariant: process.env.GEN_MODEL_VARIANT ?? "medium",
   llmAgent: process.env.GEN_LLM_AGENT ?? "factory-json",
   // null when nothing is installed; the spawn sites turn that into one
   // actionable error instead of a bare ENOENT on a guessed path.
   opencodeBin: resolveOpencodeBin(),
   threads: intEnv("GEN_THREADS", 2, { min: 1, max: 4 }),
   maxThreads: 4,
-  targetEntities: intEnv("GEN_TARGET_ENTITIES", 25_000, { min: 1_000, max: 50_000 }),
+  targetEntities: intEnv("GEN_TARGET_ENTITIES", 1_114_112, { min: 1, max: 1_114_112 }),
   explorationShare: 0.1,
   runsDir: resolve(process.env.GEN_RUNS_DIR ?? resolve(ROOT, "runs")),
   renderDir: resolve(process.env.GEN_RENDER_DIR ?? resolve(process.env.GEN_RUNS_DIR ?? resolve(ROOT, "runs"), "render")),
@@ -72,6 +85,9 @@ export const config = {
   blindClearQuorum: 1,
   renderVendors: ["noto", "platform"],
   contractRetries: 2,
+  // Live smoke tests set this to zero so malformed output cannot spend extra
+  // model calls. Production generation keeps one bounded structural repair.
+  recordContractRepairs: intEnv("GEN_RECORD_CONTRACT_REPAIRS", 1, { min: 0, max: 1 }),
   // Enrichment proposes; the separate unanimous verifier decides. Multiple
   // long proposal votes waste scarce API capacity without adding a gate.
   enrichVotes: 1,

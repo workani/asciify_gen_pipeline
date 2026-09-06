@@ -11,8 +11,9 @@ export function estimateCapacity({
   observedTokens = 200_000,
   rewriteShare = 1,
   safetyFactor = 2,
+  legacy = false,
 } = {}) {
-  const calls = {
+  const calls = legacy ? {
     blind_ground: ceil(entities * config.blindCallsPerEntity),
     enrich: ceil(entities * config.enrichVotes),
     contrast: ceil(entities * config.contrastVotes),
@@ -22,7 +23,7 @@ export function estimateCapacity({
     recover: ceil(entities * config.recoverVotes),
     synth: ceil(entities * config.synthVotes / config.synthBatch),
     adjudicate: ceil(entities * config.adjudicateVotes / config.adjudicateBatch),
-  };
+  } : { records: ceil(entities * 2) };
   const totalCalls = Object.values(calls).reduce((sum, value) => sum + value, 0);
   const callsPerMinute = observedCalls / observedMinutes;
   const rawMinutes = totalCalls / callsPerMinute;
@@ -31,6 +32,8 @@ export function estimateCapacity({
   return {
     entities,
     assumptions: {
+      pipeline: legacy ? "legacy-alias-research" : "reviewed-records",
+      structural_repairs: "up to one additional call per phase; covered approximately by safety factor",
       rewrite_share: rewriteShare,
       contrastive_queries_per_entity: 1,
       observed_calls_per_minute: callsPerMinute,

@@ -4,6 +4,8 @@ import { AUTOPILOT_STAGES, runAutopilotWave } from "../src/autopilot.mjs";
 import { estimateCapacity } from "../src/capacity.mjs";
 import { planCorpus } from "../src/corpus.mjs";
 import { emitArtifacts } from "../src/emit.mjs";
+import { emitRecordArtifacts } from "../src/emit-records.mjs";
+import { runRecords } from "../src/stages/records.mjs";
 import { emit, onEvent } from "../src/log.mjs";
 import { pool } from "../src/pool.mjs";
 import { factoryStats, freezeEvaluationHoldout, releaseOwnedCheckpoints } from "../src/state.mjs";
@@ -51,10 +53,11 @@ function help() {
 
 Usage:
   generator plan [--target=25000] [--failures=failures.jsonl]
-  generator run --stage=ground|enrich|contrast|verify|rewrite|reverify|recover|synth|roundtrip|adjudicate|all [--limit=100] [--wave-size=100] [--threads=1..4]
+  generator run --stage=records|all [--limit=100] [--wave-size=100] [--threads=1..4]
+  generator run --stage=ground|enrich|contrast|verify|rewrite|reverify|recover|synth|roundtrip|adjudicate  (legacy research stages)
   generator status [--json]
   generator capacity [--chars=10000] [--sample-calls=68] [--sample-minutes=10] [--sample-tokens=200000]
-  generator emit [--allow-partial]
+  generator emit [--allow-partial] [--legacy]
   generator tui [--limit=100] [--wave-size=100] [--autopilot]
 
 Compatibility:
@@ -67,6 +70,7 @@ Environment:
 }
 
 const stageAliases = {
+  b: "records", records: "records",
   g: "blind_ground", ground: "blind_ground", blind: "blind_ground", blind_ground: "blind_ground",
   n: "enrich", enrich: "enrich",
   c: "contrast", contrast: "contrast",
@@ -92,6 +96,7 @@ async function runAutopilot(_limit, waveEntities = config.autopilotWaveEntities)
     policy: "breadth_first",
   });
   try {
+    if (normalized === "records") return await runRecords(limit);
     while (true) {
       cycle++;
       const stages = await runAutopilotWave({
@@ -188,12 +193,13 @@ if (command === "plan") {
   });
   console.log(JSON.stringify(estimate, null, 2));
 } else if (command === "emit") {
-  const directory = emitArtifacts({ allowPartial: Boolean(args["allow-partial"]) });
+  const directory = args.legacy ? emitArtifacts({ allowPartial: Boolean(args["allow-partial"]) })
+    : await emitRecordArtifacts({ allowPartial: Boolean(args["allow-partial"]) });
   console.log(directory);
 } else if (command === "run") {
   if (factoryStats().selection.total === 0) planCorpus();
   else freezeEvaluationHoldout();
-  const stage = args.stage ?? args._[1] ?? "ground";
+  const stage = args.stage ?? args._[1] ?? "records";
   const completed = await runStage(stage, limit);
   console.log(`\n${stageAliases[String(stage)] ?? stage}: ${completed} work item(s) completed`);
 } else if (command === "tui") {
@@ -217,7 +223,7 @@ if (command === "plan") {
     onStage: (stage) => guarded(stage, () => runStage(stage, limit)),
     onAutopilot: startAutopilot,
     onPlan: () => guarded("plan", async () => { planCorpus({ target: config.targetEntities }); }),
-    onEmit: () => guarded("emit", async () => { emitArtifacts({ allowPartial: true }); }),
+    onEmit: () => guarded("emit", async () => { await emitRecordArtifacts({ allowPartial: true }); }),
     onQuit: () => emit("stage", { stage: "tui", running: false }),
   });
   if (args.autopilot) startAutopilot();

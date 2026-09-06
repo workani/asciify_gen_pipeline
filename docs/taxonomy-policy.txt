@@ -1,0 +1,122 @@
+# Asciify family/subfamily taxonomy
+
+Implementation: src/taxonomy.mjs. Family predicates: src/taxonomy-family.mjs.
+FAMILY_RULES is one array of [predicate, family] pairs. First match wins.
+Latest policy: Unicode names identify the glyph; matching a word mentioned in
+another object's name does not establish membership. Conservative null/unknown
+is preferable to contamination. Neither families nor enums are model-authored.
+
+SOURCES
+Pinned Unicode 17.0.0 UnicodeData, Blocks, NameAliases, emoji-data and emoji-test
+in data/unicode/17.0.0. Manifest records official URLs and SHA-256 hashes, checked
+on load. Runtime Script-escape version, data and code enter the taxonomy version.
+Corpus labels, aliases and model text are not used for family assignment.
+
+ORDERED IDENTITY RULES
+ 1 whitespace-control: Cc, Cf, Zs, Zl, Zp.
+ 2 arrow: a standalone symbol whose head identity is ARROW, ARROWHEAD or HARPOON
+   (whole words, including plurals). Exclude combining/letter marks, phonetic
+   modifier letters, notation systems, shafts alone, compound math identities,
+   and emoji whose official subgroup identifies a weapon/heart/person instead.
+ 3 emoji: official heart subgroup (except love letter), a standalone heart or
+   floral-heart-bullet identity, or one of the eight BLACK/WHITE card suits.
+ 4 box-drawing: Box Drawing/Block Elements symbols, or BOX DRAWINGS identities.
+ 5 bullet: standalone typographic list markers, Po/So only. Exact grammatical
+   names cover BULLET, WHITE/INVERSE/TRIANGULAR/HYPHEN BULLET and BLACK
+   LEFTWARDS/RIGHTWARDS BULLET. Mathematical bullet operators are excluded.
+ 6 math: unambiguous standalone plus/minus/multiplication/division/equals signs,
+   including HEAVY variants in emoji/geometric blocks.
+ 7 shape: geometric blocks, or a geometric head noun in eligible symbol blocks
+   or the official emoji geometric subgroup. Exclude math blocks and identities
+   naming letters, numbers, cups, functional symbols, SignWriting or other
+   notation. Enclosures and operands do not define the containing object's family.
+ 8 letter: L*, or an enclosed alphabetic LETTER identity (Latin/Greek/Cyrillic/
+   Hebrew/Arabic). LOVE LETTER and combining letter marks are excluded.
+ 9 digit: Nd/No. No bare DIGIT keyword admission of unrelated symbols.
+10 emoji: Extended_Pictographic, excluding copyright/registered/trademark;
+   exact official emoji sequences also qualify.
+11 currency: Sc.
+12 math: Sm or symbols in Mathematical Operators, Supplemental Mathematical
+   Operators, Miscellaneous Mathematical Symbols-A/B.
+13 punctuation: P*.
+14 misc-symbol: remaining S*.
+15 unknown: everything else; sentinel, not a new selectable family.
+
+Head noun is the last token after stripping a trailing standalone WITH, POINTING
+or POINTED clause. UP-POINTING stays an adjective. This is only one piece of
+identity evidence: CUP ON BLACK SQUARE is still a cup, not a square.
+No substring matching: CYRILLIC SMALL LETTER NARROW O cannot match ARROW.
+
+SEQUENCES
+Variation selectors preserve the base character identity. Other sequences use
+exact emoji-test identities; arbitrary concatenations are unknown. The corpus
+sequence table overlaps the character table. Counts report rows in each table;
+random samples deduplicate encoded glyphs and sample without replacement.
+
+SUBFAMILIES (closed, scoped enums)
+arrow: right, left, up, down, diagonal
+emoji: face, hand, heart, animal, food, flag, object, card-suit
+shape: circle, square, triangle, diamond, star
+letter: latin, greek, cyrillic, hebrew, arabic
+math: operator, relation, set, logic
+punctuation: quote, dash, bracket, terminal, annotation
+bullet: dot, dash, arrowhead, checkmark
+
+Letters use Script escapes, with official decomposition/explicitly named Latin
+base letters for Common enclosed forms. Mathematical alphanumeric letters use
+latin by product convention (including Greek glyphs) plus script_style; original
+identities are retained. Other mathematical digits/operators keep their identity.
+Emoji use official group/subgroup plus explicit identity exceptions: love letter
+and spider web are objects, not heart/animal. Paw prints, pig nose, microbe and
+other narrow-enum mismatches remain null. Face emojis with heart eyes remain face.
+The eight BLACK/WHITE SPADE/HEART/DIAMOND/CLUB SUIT identities use card-suit
+before the general heart rule, consistently across presentation selectors.
+Other heart identities keep heart. Editorial reference marks, daggers, asterisks,
+asterisms and section/pilcrow signs use punctuation/annotation; mathematical
+asterisk operators and ornamental symbol identities retain their own families.
+Other subfamilies use Unicode-name regex with identity precedence. Barb position,
+shading, decoration and secondary operands do not determine the class. Shape
+heads outrank component words; pentagons/hexagons/rectangles are not squares.
+
+GENERATOR CONTRACT
+Code-assigned basis is unicode. Coverage nulls have null basis. Known enum gaps
+(other scripts, explicitly unsupported shapes, circular/bidirectional arrows,
+and punctuation identities such as ampersands, solidi and percent signs)
+are quarantined before renders or model calls. They cannot be laundered into a
+false model label. Remaining nulls can receive a rendered model choice ONLY from
+the family's enum, basis=model, with independent factual review. Unsupported
+choices require needs_review and are withheld. Families without an axis and
+unknown require null/null. No invented classes or cross-family fallback.
+Schema v4 passes fixed taxonomy to both writers, versions cached outputs, and
+revalidates family/subfamily/basis/properties at parse and export. Class names
+must use exact enum spellings in descriptions and retrieval phrases.
+Color, case, ornate, filled, size, script_style and stroke are properties.
+
+COLORS DATASET
+Colors is a complete collection, not a family or subfamily. Official emoji-test
+swatch identities give 36 fully-qualified glyphs spanning 12 colors: red, orange,
+yellow, green, blue, light blue, purple, pink, brown, black, grey, white.
+Circles/squares stay shape; solid hearts stay emoji/heart. Hearts supply colors
+without a circle/square emoji. No fake cyan square or pink circle is invented.
+The collection document carries colors/colours/palette labels and every member;
+its contract is to expand the complete set without pruning individual colors.
+There are no per-character 'colors' aliases and no arbitrary colored-object
+membership. This dataset metadata is not an offline search implementation.
+Membership is assigned in code even when the writer omits it. Model-proposed
+membership for non-swatches is rejected. The full collection is exported even
+when only a subset of character records has been generated. Monochrome BLACK/
+WHITE shape names alone do not establish color; explicit text presentation is
+excluded from swatch membership.
+
+REPRODUCE (assignment/report generation only; no model or search calls)
+  node scripts/taxonomy/coverage.mjs --sample-families --seed 20260905 --write-doc
+  node scripts/taxonomy/coverage.mjs --nulls FAMILY
+  node scripts/taxonomy/coverage.mjs --spot
+Optional: --ref-db PATH, --out PATH; otherwise GEN_REF_DB / GEN_ASCIIFY_ROOT.
+Reports: out/taxonomy/coverage.{txt,json}, family-samples.{txt,json},
+colors_collection.json. Complete per-family dumps: .ucd/families/FAMILY.txt.
+This file is regenerated from docs/taxonomy-policy.txt plus actual coverage.
+All remaining unknowns and nulls are printed; closed enums are not stretched to
+inflate coverage. There are only seven bullet identities, so the random sample
+shows all seven rather than padding it to ten with unrelated characters.
+Live generator testing is user-run only; inspect out/test-results.json afterward.

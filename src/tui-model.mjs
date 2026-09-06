@@ -1,4 +1,5 @@
 export const PIPELINE_STAGES = Object.freeze([
+  { id: "records", key: "b", label: "Search records", hint: "description, properties and fresh review" },
   { id: "blind_ground", key: "g", label: "Blind ground", hint: "see the glyph without identity" },
   { id: "enrich", key: "e", label: "Enrich", hint: "add identity, usage, and culture" },
   { id: "contrast", key: "c", label: "Contrast", hint: "distinguish the top five confusions" },

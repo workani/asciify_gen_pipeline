@@ -1,226 +1,121 @@
-# Asciify Dataset Factory
+# Unicode dataset generator
 
-A checkpointed vision-LLM pipeline that builds a versioned Unicode search-evidence dataset for Asciify. It is designed for a 20–30k entity run, real failure cases first, followed by high-value Unicode coverage and bounded exploration.
+All generation, checkpoints, calibration and exports live in this project. No search application integration, vector creation, service upload or retrieval benchmark is performed.
 
-The factory does not treat model output as truth. Aliases pass through dual-vendor blind grounding, identity enrichment, top-five contrastive generation, adversarial verification, name/image-blind claim recovery, query synthesis, Asciify round-trip measurement, and confusable-cluster adjudication before the strict publish gate opens.
+## Current pipeline: schema v8
 
-## Requirements
+1. **Factual draft:** identity, distinctive appearance, meaning, established names, semantic family and evidenced properties; collections are deferred. Existing aliases are not supplied.
+2. **Independent factual review:** checks identity, actual render evidence and independently established conventions. A draft's own description is not proof. Wrong, unsupported or uncertain facts quarantine the record.
+3. **Blind discovery:** proposes natural search situations from reviewed facts without seeing the existing aliases. Intent (`name`, `appearance`, `meaning`, `use`) and register (`technical`, `descriptive`, `casual`, `conversational`, `slang`, `typo`, `non-native`) are separate. Aim for 10–30 grounded wordings, with a 40-candidate ceiling. This is not a quota for new meanings: shorter output is valid and its shortfall is reported. Plausible spelling and grammar variants remain grouped with their underlying intent.
+4. **Vocabulary assessment:** sees the candidates and preserved baseline. Separately judges relevance, overlap and underlying intent groups. Exact baseline matches cannot earn novelty credit. Different words for the same intent form one group. All distinct grounded lexical variants survive export; only one direct representative per meaning/use group is eligible for an intent embedding candidate. Unsupported or uncertain candidates are withheld. A record with meaning cannot export until at least one grounded use-intent phrase citing that meaning survives assessment. Every reviewed name must also survive as its full direct name-intent phrase with its own citation.
 
-- Node.js 22.18 or newer. `node:sqlite` is unflagged from 22.13, and the round-trip harness imports Asciify's `.ts` sources directly, which needs built-in type stripping (22.18+). Node 24 LTS is the safe choice.
-- OpenCode on `PATH`, at `$HOME/.opencode/bin/opencode`, or at `OPENCODE_BIN`
-- Google Chrome or Chromium for deterministic glyph renders
-- An adjacent Asciify checkout, or `GEN_ASCIIFY_ROOT`
-- Asciify's `gen/out/ref.db`
-- A full Noto Color Emoji TTF/OTF (the adjacent Asciify checkout's `gen/fonts/Noto-COLRv1.ttf` is auto-detected)
+Baseline names, codepoint labels and aliases are assembled by code with provenance. Historical aliases remain explicitly source-unverified; preserving them is not independent verification. Raw source text is preserved, and semicolon/newline/pipe boundaries produce phrase entries without guessing word boundaries. Lexical token-span overlap is reported separately from semantic equivalence.
 
-macOS and Linux are both supported. `CHROME_BIN` and `OPENCODE_BIN` are resolved through `PATH` as well as the usual install locations, so they normally need no configuration; set them when a binary lives somewhere unusual.
+Four model calls for a normal record, three for empty discovery (only permitted when meaning is null and names is empty). Each phase allows at most `GEN_RECORD_CONTRACT_REPAIRS` bounded structural repairs (default one). There is no sampling loop after factual rejection. Each completed phase is saved durably. A transport failure resumes the missing phase; changed baseline vocabulary invalidates only vocabulary assessment when facts/render context remain compatible. Schema/prompt/model changes select a new checkpoint version.
 
-Install and verify:
+## Scope and model
 
-```bash
-npm install
-npm test
-```
+OpenCode defaults to **Muse Spark 1.3 Free** (`opencode/muse-spark-1.3-contributor-free`), variant `medium`. `GEN_MODEL` and `GEN_MODEL_VARIANT` are explicit overrides. Model generation has not been run to validate schema v8.
 
-All tests are offline. The OpenCode integration tests use a deterministic local fake; they never call a model. The Chrome-dependent tests skip themselves when no browser is installed — check the runner's skip count before treating a green suite as renderer coverage.
+The existing corpus and vocabulary adapters read source material from the adjacent checkout or configured input paths; they do not write back. `GEN_REF_DB`, `GEN_ASCIIFY_ROOT`, `GEN_DB`, `GEN_OUT_DIR` and `GEN_RUNS_DIR` configure input/output locations. There is no new Asciify integration requirement.
 
-### Linux notes
-
-Fonts decide what the vision model sees, and a stock server image has almost none:
-
-```bash
-sudo apt install -y chromium fonts-noto-core fonts-noto-extra fonts-noto-color-emoji fonts-dejavu-core
-```
-
-(`google-chrome-stable` works equally well but comes from Google's own apt repository, not Debian's.)
-
-The `noto` vendor requires a full local Noto Color Emoji font. The resolver checks `GEN_NOTO_COLOR_EMOJI_FONT`, `assets/Noto-COLRv1.ttf`, the adjacent Asciify checkout's `gen/fonts/Noto-COLRv1.ttf`, and the usual Linux system path. It validates the sfnt name table and rejects small coverage subsets or unrelated fonts. The `platform` vendor prefers Apple Color Emoji/Apple Symbols or Segoe UI Emoji/Symbol. If the two normalized pixel fingerprints are identical, the entity is deterministically quarantined instead of claiming false vendor independence.
-
-Headless Chrome needs an unprivileged user namespace for its sandbox. As a normal desktop or SSH user this works; as root or inside a container it does not, so the factory adds `--no-sandbox` automatically when running as uid 0 and honours `GEN_CHROME_NO_SANDBOX=1` for other confined environments. `--disable-dev-shm-usage` is always applied on Linux.
-
-Moving an in-progress `state.sqlite` between machines: checkpoint the WAL first (`PRAGMA wal_checkpoint(TRUNCATE)`), then copy the single file — copying the database without its `-wal` sidecar silently loses the most recent stage work.
-
-## Pipeline
-
-```text
-failure intake + ref.db
-        ↓
-25k deterministic selection + confusion graph
-        ↓
-blind visual grounding (identities withheld)
-        ↓
-identity / colloquial / usage enrichment
-        ↓
-top-5 confusion-neighbor contrastive claims
-        ↓
-independent adversarial claim verification
-        ↓
-rejected-alias rewrite
-        ↓
-independent rewrite revalidation
-        ↓
-name/image-blind claim recovery (retry contrast on failure)
-        ↓
-2–5 query phrasings per verified claim
-        ↓
-round-trip measurement through Asciify's lexical harness
-        ↓
-shuffled confusable-cluster adjudication
-        ↓
-strict quality gate + versioned artifacts
-```
-
-Checkpoints are per entity, stage, and prompt version. A crash leaves `running` checkpoints, which are recovered as `stale` on the next process start. Passed work is not regenerated unless its stage version changes.
-
-### Blank-glyph and long-run hardening
-
-Before any screenshot reaches a vision model, the renderer rasterizes exactly one glyph, counts its non-background pixels, and hash-compares its normalized ink crop with that vendor stack's `.notdef` render. Empty, tofu, missing-font, and identical-vendor renders are deterministically rejected. Blind grounding is fixed at two calls per normal entity: one multimodal call sees the target in both vendors alongside its top-five confusion neighbors and emits shared fixed-slot claims plus query phrasings; one fresh text-only call receives no images, names, or target marker and must recover the target while reviewing every claim. A malformed response is not silently retried, so a stage attempt can never expand into a 7–21 call loop. Bare counts, fill-only descriptions, and other low-information phrases never become standalone claims, and an entity cannot pass without a useful overall form or distinctive feature.
-
-Each Chrome capture uses an isolated temporary profile. Complete screenshots are detected from the stable PNG itself, so a Chrome process that writes its result but fails to exit cannot stall the factory. Captures, model calls, and response sizes all have hard bounds. Blind grounding normally uses one generation and one recovery call; either phase gets at most one repair call after malformed output. Stage work is lease-fenced, unfinished leases are released on stage exit, and dead-process checkpoints are recovered on restart.
-
-The adaptive blind-ground version intentionally does not migrate contact-sheet, six-vote, or semantic-majority evidence. Existing rows and raw OpenCode logs remain available for audit, but they cannot contaminate v7 artifacts.
+Generation priority remains **arrows → formatting → punctuation → special symbols → emoji → everything else**. Priority groups are not truncated by the soft target for the remaining corpus. Default selection covers eligible source entities; private/unassigned entries remain excluded except explicit failure evidence.
 
 ## Commands
 
-Create or refresh the 25k work plan:
+Requires Node 22.18+, OpenCode and the existing Chrome/font render dependencies for live generation.
 
-```bash
-npm run plan
-# or
-node bin/generator.mjs plan --target=25000 --failures=failures.jsonl
-```
-
-Run stages headlessly:
-
-```bash
-node bin/generator.mjs run --stage=ground --limit=500 --threads=4 --verbose
-node bin/generator.mjs run --stage=enrich --limit=500 --threads=4
-node bin/generator.mjs run --stage=contrast --limit=500 --threads=4
-node bin/generator.mjs run --stage=verify --limit=500 --threads=4
-node bin/generator.mjs run --stage=rewrite --limit=500 --threads=4
-node bin/generator.mjs run --stage=reverify --limit=500 --threads=4
-node bin/generator.mjs run --stage=recover --limit=500 --threads=4
-node bin/generator.mjs run --stage=synth --limit=500 --threads=4
-node bin/generator.mjs run --stage=roundtrip --limit=15000
-node bin/generator.mjs run --stage=adjudicate --limit=500 --threads=4
-```
-
-Run breadth-first unattended coverage until blind grounding and enrichment have
-no eligible work left:
-
-```bash
-node bin/generator.mjs run --stage=all --wave-size=100 --threads=4 --verbose
-```
-
-Autopilot intentionally runs only blind ground → enrich across the corpus. Blind grounding persists independently recovered verified visual claims and initial query phrasings; enrichment adds identity, colloquial, and usage proposals. Contrast, verification, rewrite, reverify, recovery, synthesis, round-trip, and adjudication remain available as explicit manual stages, but unattended mode never spends API capacity on them.
-
-AI stages use a rolling, work-conserving entity queue. A free worker is refilled immediately without combining glyphs into a contact sheet. OpenCode runs through the project-local `factory-json` agent with all tools disabled, `--pure`, and the low-reasoning model variant to avoid loading an unnecessary coding-agent tool context.
-
-Open the dashboard:
-
-```bash
+```sh
+node bin/generator.mjs plan
+node bin/generator.mjs run --stage=records --limit=10 --threads=2
+node bin/generator.mjs emit --allow-partial
 npm start
-# immediately start unattended processing with the dashboard visible
-npm start -- --autopilot --threads=4 --wave-size=100
 ```
 
-The dashboard is a responsive control room: checkpoint progress stays on the left, the focused OpenCode response streams in the center, and the wide layout adds four stable worker slots plus live dataset-quality counters. Thread buttons and pipeline stages are clickable; the same controls have keyboard shortcuts.
+`plan` updates selection ordering while retaining historical checkpoints. `run --stage=all` can make many model calls. The dashboard's B builds records; X runs the record autopilot. Legacy research stages remain explicit alternatives, not the default pipeline.
 
-The header token/call counter is scoped to the current pipeline versions. Historical usage remains available in `status.tokens`, while `status.pipelineTokens` prevents an old multi-million-token run from looking like the cost of the current characters.
+`./test.sh` is a **live, paid/quota-consuming provider pass** over 16 characters. It disables contract repairs, making at most four calls per character (64 total). It prints errors as they happen, records progress in both the run-local report and `out/test-results.json`, and exits nonzero on failures. It has not been run for the current contract. `npm test` runs local unit tests, including injected provider fixtures; it is separate from the live harness.
 
-Dashboard keys:
+`./test.sh --hand` (also `—hand`) runs only 🪬 (U+1FAAC), prints its result, and writes `out/test-results.json` in addition to a separate `-hand` run directory.
 
-```text
-g blind ground   e enrich      c contrast     v verify       w rewrite      z reverify
-d recover        s synth
-r roundtrip      a adjudicate  p publish      x autopilot
-1-4 threads
-←/→ worker       f follow      space pause    ? help    q quit
+`./test.sh --old` runs the 9 historical comparison characters and writes `out/test-results-old.json`. `./test.sh --100` combines all 16 normal characters and all 9 historical characters with 75 additional arrows, typography/spacing characters, math symbols, shapes, currency/UI symbols, and emoji: exactly 100 distinct code points, up to 400 model calls. It prints all 100 results by default and writes `out/test-results.json`, with a separate `-100` run directory. Presentation options such as `--print=5` can override the output size; `--cps`, `--family`, and `--old` cannot override the 100-character cohort. The typographic spelling `—100` is also accepted. Live runs remain user-run only.
+
+For a full family, run `./test.sh --family=bullet` (all 7 canonical bullet characters), or another exact family enum. This includes every reference-corpus member of that family, folds scalar/presentation-only sequence duplicates, and reports omitted duplicate counts. It does not silently skip taxonomy gaps: quarantined/missing records prevent complete coverage. A full arrow family can be much larger and requires up to four provider calls per entity. The report includes family/subfamily counts, per-family register coverage, low-yield members, fixed-taxonomy errors and copied descriptions across differing facts. These deterministic flags support human comparison of the saved records; they do not certify model semantics. Local tests cover the complete seven-member bullet fixture, missing/contaminated records and left/right contrasts. The full-family live run remains user-run only.
+
+Descriptions use natural prose. Unicode names/codepoints remain metadata; uppercase name dumps, repeated long names and generic hedge tails are rejected for bounded repair. Specific qualifications and negation remain intact. Embedding text uses appearance (or natural identity for invisible symbols), the reviewed full names, and established meaning. It does not append generated query variants or source/evidence prose.
+
+## Output contract
+
+- `embedding_records.jsonl`: one factual record and compact description document per entity, plus canonical facets, baseline and retained lexical variants. No vectors are created.
+- `baseline_sources.jsonl`: verbatim source text and fingerprint.
+- `baseline_vocabulary.jsonl`: preserved names/codepoint labels/alias entries with source and verification status. No discovery credit.
+- `retrieval_vocabulary.jsonl`: every distinct grounded wording, with register, relevance, group ID and its own baseline relation. These are suggestions, never exact-query winner rules.
+- `intent_embedding_candidates.jsonl`: optional text-only candidates for direct meaning/use groups. One representative per group, never all paraphrases. Related/ambiguous candidates are withheld from this file. Documents carry the entity ID as a merge key. Selection does not prove benefit.
+- Collection curation is deferred. Records reserve empty `collections`/`collection_memberships` arrays; generation exports no collection or palette files.
+- `family_catalog.json`: current closed family list.
+- `record_evidence.jsonl`: all draft, review, discovery, assessment and provenance data; never embedding content.
+- `record_attempts.jsonl`: parsed, rejected and failed attempts across all four phases.
+- `quality_report.json`: factual verdicts and candidate relevance separately; baseline echoes, retained phrases, new wordings, phrase shortfalls, register coverage and known/proposed/uncertain intent groups separately. Includes cohort completeness and cross-character repeated-description flags. Measured search improvement stays null.
+- `manifest.json`: schema/stage versions, model, file checksums and explicit zero-vector/no-integration contract.
+
+`emit` requires current, revalidated phase outputs. `--allow-partial` marks incomplete inspection artifacts. v1/v2 records cannot silently enter v5 exports. Existing generated files are preserved as historical evidence.
+
+Identical ink hashes become one attachment before model calls. Property scope is computed: observed, cross_render or established. These are evidence scopes, not universal font guarantees. Review of visual properties must cover all claimed attachments. Unique property keys contain value arrays. Direction, terminal head direction and traveled directions retain separate roles.
+
+Explicit attachment IDs and distinct image hashes determine visual coverage. Evidence prose such as "both renders" cannot add support. A wording/citation mismatch creates a nonfatal `render_wording_mismatch` audit warning, preserved in checkpoints, attempts, evidence and the quality report. Invalid IDs, incompatible basis/attachments, and missing visual-property coverage still fail validation.
+
+## Reviewer calibration, offline preparation and scoring
+
+```sh
+node scripts/reviewer-calibration.mjs prepare --split=calibration --out=out/calibration/tasks.jsonl
+node scripts/reviewer-calibration.mjs score --split=calibration --responses=out/calibration/responses.jsonl --out=out/calibration/score.json
+# Use --split=holdout for the separate held-out cases.
 ```
 
-Inspect status or emit artifacts:
+Neither command invokes a model or the search application. Preparation emits the actual reviewer prompt and blinded tasks with opaque case IDs, no expected answers. Responses are JSONL rows `{ "case_id": "case:...", "response": { ...model response... } }`. Scoring reports false accepts, false rejects, missed cases and grouping failures. Missing/invalid responses cannot look like success.
 
-```bash
-npm run status
-node bin/generator.mjs emit                 # strict production gate
-node bin/generator.mjs emit --allow-partial # inspection artifact
-```
+Controls include reversed directions, harpoon travel versus barb side, invented components, mathematical negation, truthful synonym bundles, separate semantic intents and multiple simultaneously relevant symbols. `src/record-relevance.mjs` provides the target-free multi-candidate annotation contract: all plausible matches can pass, with no designated winner. These annotations are reviewer controls, not search benchmarks.
 
-## Failure input
+**Fixture labels are provisional and require human review.** They are not presented as a human-validated benchmark or an automatic production approval gate. No calibration model run has been performed.
 
-JSON or JSONL records can augment the built-in failure report:
+## Unicode taxonomy and colors dataset
 
-```json
-{"query":"right triangle arrow","target_kind":"character","target_key":"9654","thief_keys":["10148"],"candidate_keys":["11246"],"count":31,"severity":5,"source":"production-events"}
-```
+`src/taxonomy.mjs` assigns families in code using checked Unicode 17.0.0 data. The ordered predicates in `src/taxonomy-family.mjs` classify identities, with guards against matching words inside unrelated names. Schema v6 fixes the family and code-assigned subfamily in prompts, parser, cache keys and exports. Known enum gaps are quarantined; other null assignments allow a reviewed model fallback from the family's closed enum.
 
-`target_key` is a decimal code point for `character` targets and the exact lowercase sequence key for `emoji_sequence` targets. Failure targets and competitors override ordinary corpus exclusions and enter tier 0.
+Punctuation includes `annotation` for reference marks, daggers, asterisks and section/paragraph markers. The eight black/white card-suit symbols use `emoji/card-suit`, including text and emoji presentation variants; other heart identities retain `heart`. Known punctuation gaps such as ampersands and solidi are reported before rendering or model calls. Taxonomy and prompt changes automatically select new checkpoint versions.
 
-Selection order is determined by failure frequency/severity, built-in seeds, popularity, Unicode general category, visual/search value, alias gaps, and a category-balanced exploration reserve. Private use, surrogate, unassigned, and massive ideograph/syllable ranges do not consume the generation budget unless a real failure explicitly selects them.
+`node scripts/taxonomy/coverage.mjs --sample-families --write-doc` prints full character/sequence coverage and regenerates [families.txt](families.txt), including subfamily nulls, unknowns and reproducible samples. It also writes `out/taxonomy/colors_collection.json`: all 36 official swatches across 12 colors, independent of generated-record sampling. Color is a property and colors is a collection, spanning shapes and solid hearts. Complete collection membership is the dataset contract; no search engine or query resolver is implemented here.
 
-## Artifacts
+Run unit/fixture checks with `GEN_TEST_FULL_HARNESS=0 npm test`. Live generator testing is user-run only (`./test.sh`); inspect `out/test-results.json` afterward.
 
-Every `out/<timestamp>-<pipeline-version>/` directory contains:
+Collection decoupling (schema v5): prompts receive no collection catalog, factual review has no collection claims, and export adds no automatic colors membership. Taxonomy/subfamily acceptance rules are unchanged.
 
-- `entities.jsonl` — selected corpus and selection provenance
-- `claims.jsonl` — verified atomic evidence with verifier provenance
-- `aliases.jsonl` — aliases grouped by target and family
-- `alias_docs.jsonl` — entity-deduplicated vector documents
-- `search_terms.jsonl` / `unicode_search_terms.sql` — approved exact terms for Asciify
-- `synonyms_backfill.sql` — idempotent FTS synonym snapshot
-- `goldens.jsonl` — graded queries, hard negatives, and baseline ranks
-- `confusion_edges.jsonl` — deterministic, failure, and visual confusions
-- `preference_pairs.jsonl` — adjudicated winner/loser training pairs
-- `guards.jsonl` — victim/thief demotion rules
-- `quality_report.json` — coverage and validation metrics
-- `manifest.json` — model, prompt versions, counts, and SHA-256 checksums
+## Dominant color contract (schema v6)
 
-Broad phrases shared by many targets remain available to vector retrieval but are down-weighted or withheld from exact-term insertion. Model-generated queries do not become search terms unless confusable-cluster adjudication supports their winner.
+`color` has exactly one canonical dominant whole-symbol color, or is omitted. `accent_color` optionally records smaller component colors, with evidence naming the component. Both use the existing 12-color palette from `taxonomy-colors.mjs`. For a yellow face with a blue tear, the output is `color: ["yellow"]` and optionally `accent_color: ["blue"]`. Component-specific prose can still say "blue tear"; neither reviewers nor discovery should turn it into "blue emoji".
 
-## Production publish gate
+Non-swatch dominant colors require rendered evidence across every supplied distinct view. The writer omits `color` when no stable dominant hue exists, colors are equally prominent, or views disagree. Code-fixed Unicode swatch identities retain their fixed color. Theme/background ink is not intrinsic glyph color. The parser rejects multiple dominant values, unknown palette values, unsupported evidence bases and dominant/accent overlap. It does not infer visual prominence from pixel counts; independent factual review must verify that semantic claim.
 
-Normal `emit` refuses to publish unless all of these hold:
+Export preserves `facets.color` and `facets.accent_color` separately. It never merges accents into dominant color. Compilation revalidates this contract; old multi-color records fail rather than silently choosing the first hue. The schema/prompt revision invalidates earlier checkpoints for current exports. Historical files are not rewritten, and this change does not modify any search page or application.
 
-- 20,000–30,000 selected entities
-- at least 95% of entities have verified aliases
-- median of at least three verified aliases per entity
-- at least 90% claim-recovery coverage and Top-1 accuracy
-- at least 90% entity coverage by generated queries
-- every generated query has a measured baseline rank
-- verified aliases recover at least 90% of generated queries into Asciify's top five
-- at least 90% of contrastive queries have cluster adjudication
-- no checkpoint is still running
 
-Use `--allow-partial` only to inspect progress. Its manifest records the failed gates.
+## Conventional meanings (schema v7)
 
-## Configuration
+Before setting meaning to null, both writer and independent reviewer check keyboard/UI notation, mathematics/logic, typography/editorial marks, cultural/religious symbolism and common informal usage. The reviewer always receives `description.meaning`, including null, and can reject an omitted convention. Uncertainty requires review rather than an unsupported assertion of absence.
 
-```text
-GEN_MODEL                OpenCode model (default: opencode/x-preview-f-free)
-GEN_MODEL_VARIANT        reasoning variant (default: low)
-GEN_LLM_AGENT            tool-free OpenCode agent (default: factory-json)
-OPENCODE_BIN             OpenCode executable
-GEN_ASCIIFY_ROOT         Asciify checkout
-GEN_REF_DB               source ref.db
-GEN_DB                   checkpoint database
-GEN_THREADS              1..4
-GEN_TARGET_ENTITIES      default selection size
-GEN_EVAL_HOLDOUT_SIZE    immutable stratified entity holdout (default 500)
-GEN_FAILURES             JSON/JSONL failure input
-GEN_NOTO_COLOR_EMOJI_FONT full Noto Color Emoji TTF/OTF for the `noto` vendor
-GEN_RUNS_DIR             immutable OpenCode NDJSON logs
-GEN_RENDER_DIR           validated single-glyph rasters
-GEN_OUT_DIR              artifact output
-CHROME_BIN               Chrome/Chromium executable
-GEN_CHROME_NO_SANDBOX    set to 1 to pass --no-sandbox (containers)
-NODE_BIN                 node used by bin/autopilot.sh
-GEN_LLM_START_TIMEOUT_MS maximum wait for the first OpenCode NDJSON event (default 90s)
-GEN_REQUEST_TIMEOUT_MS   per-call timeout
-GEN_MAX_RESPONSE_BYTES   maximum NDJSON line/response bytes
-GEN_MAX_STAGE_ATTEMPTS   resumable attempts per failed stage (default 5)
-GEN_RENDER_CAPTURE_TIMEOUT_MS  per-Chrome capture timeout
-GEN_RENDER_ATTEMPTS      bounded recaptures (default 4)
-GEN_RENDER_MIN_INK_PIXELS single-glyph ink threshold
-```
+Non-null meaning requires `meaning_evidence: { basis: "convention", source: "named practice or known document", evidence: "how the convention uses the character" }`. With null meaning, the evidence field is null too. This is attributed model knowledge assessed independently, not a fabricated external verification. Evidence stays outside embedding prose. Supported meaning review requires convention basis.
 
-Raw OpenCode event streams and session IDs are retained under `runs/`. The dataset can therefore be re-parsed or re-verified after contracts and prompts evolve without losing provenance.
+Discovery must produce at least one `intent: "use"` candidate citing `description.meaning`; export requires such a grounded phrase to survive vocabulary review and grouping. Shape paraphrases do not satisfy use coverage. For ⊞, keyboard-shortcut notation supplies the Windows-key stand-in meaning and queries such as “windows key”, “win key” and “windows logo key”; the source evidence does not claim that the glyph is the official logo. Old checkpoints are invalidated by the new schema/prompt contract. Live validation remains user-run.
+
+
+## Established names (schema v8)
+
+`names` is a required array of up to 16 distinct `{ name, basis, source, evidence }` facts. It records what a character or represented object is called, separately from its appearance and use. Identity-backed names require supplied metadata; conventional names require attributed domain knowledge. The factual writer and reviewer remain blind to historical synonym blobs. Neither pixels nor an old alias provide evidence for a cultural name.
+
+The reviewer checks each `names.N` entry and a separate `names` completeness claim, even for an empty list. It must flag omitted common technical, cultural, historical or transliterated names. An empty list is legitimate after checking naming conventions; uncertainty or a missing established name blocks acceptance. This semantic check still depends on the reviewer's knowledge, not a deterministic dictionary of all possible names.
+
+Discovery must include every reviewed full name as `intent: "name"` citing its own `names.N` fact, even when meaning is null. Export requires each exact name to survive vocabulary review with direct relevance and name intent. Related wording, one generic name candidate, baseline entries, use phrases and shortened keywords cannot satisfy this per-name check. Alternate names share a naming intent; new spelling is not a newly discovered use.
+
+Export includes the evidence-backed `names` array, full names in lexical retrieval vocabulary, and a compact “Also known as” line in the character embedding text. Source/evidence text remains outside embeddings; name groups create no additional intent embedding candidates. Existing baselines keep their original provenance and verification status. Schema/prompt fingerprints invalidate old checkpoints, and export revalidates the names contract.
+
+Offline regressions cover hamsa names, irony mark, empty and incomplete lists, unsupported evidence, missing citations, reviewer withholding/reclassification, and persisted artifact export. To validate the provider on both reported failures, run `./test.sh --cps=1faac,2e2e --print=2` yourself, then inspect `out/test-results.json`. No live validation has been performed for this contract.

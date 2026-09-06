@@ -2,23 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AUTOPILOT_STAGES, runAutopilotWave } from "../src/autopilot.mjs";
 
-test("unattended policy runs only blind ground then enrich", async () => {
+test("unattended policy runs reviewed records and never legacy proposals", async () => {
   const calls = [];
   const phases = [];
   const completed = await runAutopilotWave({
     waveEntities: 100,
     runStage: async (stage, limit) => {
       calls.push({ stage, limit });
-      return stage === "blind_ground" ? 80 : 72;
+      return 72;
     },
     onPhase: ({ stage }) => phases.push(stage),
   });
 
-  assert.deepEqual(AUTOPILOT_STAGES, ["blind_ground", "enrich"]);
+  assert.deepEqual(AUTOPILOT_STAGES, ["records"]);
   assert.deepEqual(calls, [
-    { stage: "blind_ground", limit: 100 },
-    { stage: "enrich", limit: 100 },
+    { stage: "records", limit: 100 },
   ]);
-  assert.deepEqual(phases, ["blind_ground", "enrich"]);
-  assert.deepEqual(completed, { blind_ground: 80, enrich: 72 });
+  assert.deepEqual(phases, ["records"]);
+  assert.deepEqual(completed, { records: 72 });
 });

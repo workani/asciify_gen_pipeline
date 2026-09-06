@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { selectEntities } from "../src/selection.mjs";
+import { selectEntities, generationGroup } from "../src/selection.mjs";
 
 const character = (code_point, hex_code, name, category_key, character, popularity = 0) => ({
   code_point, hex_code, name, category_key, character, popularity, synonyms: "",
 });
 
-test("selection is deterministic, failure-first, and deduplicates scalar emoji sequences", () => {
+test("selection is deterministic, family-first, and deduplicates scalar emoji sequences", () => {
   const characters = [
     character(9654, "25B6", "BLACK RIGHT-POINTING TRIANGLE", "geometric-shapes", "▶", 418),
     character(10148, "27A4", "BLACK RIGHTWARDS ARROWHEAD", "dingbats", "➤", 4),
@@ -30,7 +30,8 @@ test("selection is deterministic, failure-first, and deduplicates scalar emoji s
   const second = selectEntities(input);
   assert.deepEqual(first.selected, second.selected);
   assert.equal(first.selected.length, 7);
-  assert.equal(first.selected[0].entity_id ?? first.selected[0].key, "character:19968");
+  assert.equal(first.selected[0].entity_id ?? first.selected[0].key, "character:10148");
+  assert.ok(first.selected.findIndex((row) => row.key === "character:19968") > first.selected.findIndex((row) => row.key === "emoji_sequence:1f1ec-1f1f7"));
   assert.ok(first.selected.some((row) => row.key === "emoji_sequence:1f1ec-1f1f7"));
   assert.ok(!first.selected.some((row) => row.key === "emoji_sequence:25b6"), "scalar emoji duplicated character row");
   assert.ok(!first.selected.some((row) => row.key === "emoji_sequence:25b6-fe0f"), "presentation selector duplicated character row");
@@ -51,4 +52,29 @@ test("internal entity ids prevent character/sequence key collisions", () => {
   assert.deepEqual(new Set(result.selected.map((row) => row.key)), new Set([
     "character:1234", "emoji_sequence:1234-200d-5678",
   ]));
+});
+
+test("all priority groups survive a small target and popularity cannot jump families", () => {
+  const result = selectEntities({ characters: [
+    character(8594, "2192", "RIGHTWARDS ARROW", "arrows", "→"),
+    character(10163, "27B3", "WHITE-FEATHERED RIGHTWARDS ARROW", "dingbats", "➳"),
+    character(8195, "2003", "EM SPACE", "general-punctuation", " "),
+    character(8226, "2022", "BULLET", "general-punctuation", "•"),
+    character(33, "0021", "EXCLAMATION MARK", "basic-latin", "!"),
+    character(128512, "1F600", "GRINNING FACE", "emoticons", "😀", 100000),
+    character(19968, "4E00", "CJK UNIFIED IDEOGRAPH-4E00", "cjk-unified-ideographs", "一", 1000000),
+  ], sequences: [], failures: [{ target_kind: "character", target_key: "19968", query: "one", count: 99999 }], target: 2 });
+  assert.equal(result.selected.length, 6, "target is a soft cap for complete priority coverage");
+  assert.deepEqual(result.selected.map(generationGroup), ["arrows", "arrows", "formatting", "formatting", "punctuation", "emoji"]);
+});
+
+test("everything else includes unseeded assigned ideographs after priority coverage", () => {
+  const result = selectEntities({ characters: [character(19968, "4E00", "CJK UNIFIED IDEOGRAPH-4E00", "cjk-unified-ideographs", "一")], sequences: [], target: 10 });
+  assert.equal(result.selected.length, 1);
+});
+
+test("keyboard and special symbols precede emoji; zigzag arrows remain in the first group", () => {
+  assert.equal(generationGroup({ character: "⊞", name: "SQUARED PLUS", category_key: "mathematical-operators" }), "special-symbols");
+  assert.equal(generationGroup({ character: "⌘", name: "PLACE OF INTEREST SIGN", category_key: "miscellaneous-technical" }), "special-symbols");
+  assert.equal(generationGroup({ character: "↯", name: "DOWNWARDS ZIGZAG ARROW", category_key: "arrows" }), "arrows");
 });

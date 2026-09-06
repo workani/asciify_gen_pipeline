@@ -233,11 +233,12 @@ export function buildTui({ onThreads, onRun, onStage, onAutopilot, onPause, onEm
     padding: { left: 3, right: 3, top: 1 },
     content:
       `{${C.cyan}-fg}{bold}RUN THE FACTORY{/bold}{/}\n\n` +
-      ` g  Blind grounding       e  Enrich identity & usage\n` +
+      ` b  Build reviewed search records (default)\n` +
+      ` g  Legacy grounding     e  Legacy enrichment\n` +
       ` v  Verify claims         w  Rewrite rejected aliases\n` +
       ` z  Reverify rewrites     s  Synthesize queries\n` +
       ` r  Round-trip retrieval  a  Adjudicate confusions\n` +
-      ` p  Publish artifacts      x  Ground + enrich all\n\n` +
+      ` p  Inspect record export  x  Build all records\n\n` +
       `{${C.cyan}-fg}{bold}CONTROL{/bold}{/}\n\n` +
       ` 1–4  Worker threads      Space  Pause / resume queue\n` +
       ` ← →  Focus worker        f      Follow live output\n` +
@@ -412,7 +413,7 @@ export function buildTui({ onThreads, onRun, onStage, onAutopilot, onPause, onEm
       `${progressBar(snapshot.selection.total ? completeEntities / snapshot.selection.total * 100 : 0, 22)}\n` +
       `${formatCount(completeEntities)} / ${formatCount(snapshot.selection.total)} characters\n\n` +
       `{${C.muted}-fg}${autopilot ? `BREADTH AUTO · CYCLE ${autopilotCycle}` : "ACTIVE BATCH"}{/}\n` +
-      `${currentStage ? `{${C.cyan}-fg}${currentStage}{/} · ${stageElapsed}` : autopilot ? "Grounding and enriching corpus" : "No stage running"}\n` +
+      `${currentStage ? `{${C.cyan}-fg}${currentStage}{/} · ${stageElapsed}` : autopilot ? "Building and reviewing search records" : "No stage running"}\n` +
       `${queue.queued} queued · ${queue.active} active`,
     );
   }

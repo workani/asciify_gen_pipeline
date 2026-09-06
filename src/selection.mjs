@@ -24,6 +24,24 @@ const GROUP_SCORE = {
   other: 0,
 };
 
+export const GENERATION_GROUPS = Object.freeze(["arrows", "formatting", "punctuation", "special-symbols", "emoji", "everything-else"]);
+
+export function generationGroup(row) {
+  const glyph = row.character ?? row.emoji ?? "";
+  const name = String(row.name ?? "");
+  const block = String(row.category_key ?? "");
+  if (/arrow/i.test(block) || /\b(?:ARROWS?|ARROWHEADS?|HARPOONS?)\b/i.test(name)) return "arrows";
+  if (/^[\p{Cf}\p{Cc}\p{Z}]+$/u.test(glyph) ||
+      /(?:box-drawing|block-elements|geometric-shapes|control-pictures)/i.test(block) ||
+      /\b(?:BULLET|PILCROW|SECTION SIGN|ORNAMENT|FLEURON)\b/i.test(name) ||
+      (/dingbat/i.test(block) && !/\p{Emoji}/u.test(glyph))) return "formatting";
+  if (/^\p{P}+$/u.test(glyph) || /punctuation/i.test(block)) return "punctuation";
+  if (row.kind === "emoji_sequence" || row.target_kind === "emoji_sequence" || row.sequence_key ||
+      /emoji|emoticon/i.test(block) || (/\p{Emoji}/u.test(glyph) && !/^[#*0-9]$/.test(glyph))) return "emoji";
+  if (/^\p{S}+$/u.test(glyph) || /(?:miscellaneous-technical|letterlike-symbols|mathematical|currency-symbols)/i.test(block)) return "special-symbols";
+  return "everything-else";
+}
+
 function popularityScore(popularity) {
   return Math.round(Math.log2(1 + Math.max(0, Number(popularity ?? 0))) * 250);
 }
@@ -121,7 +139,8 @@ function scoreSequence(row, failure, seedKeys) {
 }
 
 function entitySort(a, b) {
-  return a.selection_tier - b.selection_tier ||
+  return GENERATION_GROUPS.indexOf(generationGroup(a)) - GENERATION_GROUPS.indexOf(generationGroup(b)) ||
+    a.selection_tier - b.selection_tier ||
     b.selection_score - a.selection_score ||
     a.kind.localeCompare(b.kind) ||
     a.key.localeCompare(b.key, "en", { numeric: true });
@@ -198,15 +217,8 @@ export function selectEntities({
     const meta = classifyCharacter(row);
     const forced = failure.count > 0 || seedKeys.has(key) || seedKeys.has(targetKey);
     if (meta.hardExcluded && !forced) continue;
-    if (meta.massScript && !forced && !(row.popularity > 0)) continue;
-    if (
-      !forced &&
-      !meta.intrinsicallyUseful &&
-      !meta.preferredLetter &&
-      !meta.visualBlock &&
-      !(row.popularity > 0) &&
-      meta.generalCategory !== "letter"
-    ) continue;
+    // Assigned characters outside the first four groups remain eligible.
+    // Large scripts are scheduled later rather than silently removed.
     const rank = scoreCharacter(row, meta, failure, seedKeys);
     candidates.push({
       key,
@@ -266,38 +278,49 @@ export function selectEntities({
 
   candidates.sort(entitySort);
   const selected = new Map();
+  // A requested target limits the remaining corpus, never truncates the
+  // priority families. All priority members are selected before exploration.
+  const priority = candidates.filter((entity) => generationGroup(entity) !== "everything-else");
+  const effectiveTarget = Math.max(target, priority.length);
+  for (const entity of priority) selected.set(entity.key, entity);
+  const remainingSlots = Math.max(0, effectiveTarget - selected.size);
   const explorationSlots = Math.min(
-    Math.floor(target * explorationShare),
-    Math.max(0, target - candidates.filter((entity) => entity.selection_tier === 0).length),
+    Math.floor(remainingSlots * explorationShare), remainingSlots,
   );
-  const exploitationSlots = Math.max(0, target - explorationSlots);
+  const exploitationSlots = Math.max(0, effectiveTarget - explorationSlots);
 
   for (const entity of candidates) {
     if (selected.size >= exploitationSlots) break;
     selected.set(entity.key, entity);
   }
-  addExploration(selected, candidates, Math.min(explorationSlots, target - selected.size));
-  if (selected.size < target) {
+  addExploration(selected, candidates, Math.min(explorationSlots, effectiveTarget - selected.size));
+  if (selected.size < effectiveTarget) {
     for (const entity of candidates) {
-      if (selected.size >= target) break;
+      if (selected.size >= effectiveTarget) break;
       selected.set(entity.key, entity);
     }
   }
 
-  const out = [...selected.values()].sort(entitySort).slice(0, target);
+  const out = [...selected.values()].sort(entitySort).slice(0, effectiveTarget);
   out.forEach((entity, index) => {
     entity.selection_rank = index + 1;
+    entity.selection_reasons.unshift(`generation-group:${generationGroup(entity)}`);
   });
   return {
     selected: out,
     candidates: candidates.length,
+    requestedTarget: target,
+    effectiveTarget,
+    priorityEntities: priority.length,
     stats: summarizeSelection(out),
   };
 }
 
 export function summarizeSelection(entities) {
-  const stats = { total: entities.length, byKind: {}, byTier: {}, byGeneralCategory: {} };
+  const stats = { total: entities.length, byKind: {}, byTier: {}, byGeneralCategory: {}, byGenerationGroup: {} };
   for (const entity of entities) {
+    const group = generationGroup(entity);
+    stats.byGenerationGroup[group] = (stats.byGenerationGroup[group] ?? 0) + 1;
     stats.byKind[entity.kind] = (stats.byKind[entity.kind] ?? 0) + 1;
     stats.byTier[entity.selection_tier] = (stats.byTier[entity.selection_tier] ?? 0) + 1;
     stats.byGeneralCategory[entity.general_category] =

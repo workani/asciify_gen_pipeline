@@ -33,6 +33,7 @@ export function planCorpus({
   failureFile = config.failureFile,
   explorationShare = config.explorationShare,
   persist = true,
+  buildConfusions = false,
 } = {}) {
   const { characters, sequences } = readReferenceCorpus();
   const failures = loadFailures(failureFile);
@@ -48,7 +49,7 @@ export function planCorpus({
   if (persist) {
     replaceSelection(result.selected, STAGE_VERSIONS.select);
     freezeEvaluationHoldout();
-    confusions = buildInitialConfusions();
+    if (buildConfusions) confusions = buildInitialConfusions();
   }
   emit("corpus", {
     sourceCharacters: characters.length,

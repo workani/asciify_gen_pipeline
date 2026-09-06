@@ -801,6 +801,16 @@ export function releaseOwnedCheckpoints({ stage = null, reason = "stage exited b
   return Number(result.changes);
 }
 
+// Persist an intermediate draft under the same lease before starting review.
+// A process crash or provider startup timeout must not lose completed generation.
+export function saveCheckpointProgress({ entityId, stage, version, output, quality = null, runIds = [] }) {
+  const result = db.prepare(`UPDATE checkpoints SET output_json=?,quality_json=?,run_ids_json=?,updated_at=?
+    WHERE entity_id=? AND stage=? AND version=? AND owner_id=? AND status='running'`).run(
+    JSON.stringify(output), quality === null ? null : JSON.stringify(quality), JSON.stringify(runIds), Date.now(),
+    entityId, stage, version, PROCESS_OWNER);
+  if (Number(result.changes) !== 1) throw new Error(`Checkpoint lease lost before saving progress: ${stage}@${version} ${entityId}`);
+}
+
 export function finishCheckpoint({
   entityId, stage, version, status, output = null, quality = null, error = null, runIds = [],
 }) {
@@ -902,7 +912,8 @@ export function nextCheckpointEntities({
           )
         )
       )
-    ORDER BY CASE
+    ORDER BY CASE WHEN $stage='records' THEN e.selection_rank ELSE 0 END,
+             CASE
                WHEN c.status='stale' THEN 0
                WHEN c.status IN ('pending','failed') THEN 1
                WHEN c.status='quarantined' THEN 2

@@ -6,12 +6,15 @@
     "generator": "bin/generator.mjs"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:live-records": "./test.sh",
     "test:harness": "GEN_TEST_FULL_HARNESS=1 node --test test/harness.test.mjs",
     "dump": "node scripts/dataset-dump.mjs",
     "plan": "node bin/generator.mjs plan",
     "status": "node bin/generator.mjs status",
-    "start": "node bin/generator.mjs tui"
+    "start": "node bin/generator.mjs tui",
+    "calibration:prepare": "node scripts/reviewer-calibration.mjs prepare",
+    "calibration:score": "node scripts/reviewer-calibration.mjs score"
   },
   "keywords": [],
   "type": "module",
