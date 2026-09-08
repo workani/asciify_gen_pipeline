@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-import { config } from "../src/config.mjs";
+import { resolve } from "node:path";
+import { config, STAGE_VERSIONS } from "../src/config.mjs";
 import { AUTOPILOT_STAGES, runAutopilotWave } from "../src/autopilot.mjs";
 import { estimateCapacity } from "../src/capacity.mjs";
-import { planCorpus } from "../src/corpus.mjs";
+import { planCorpus, readReferenceCorpus } from "../src/corpus.mjs";
 import { emitArtifacts } from "../src/emit.mjs";
 import { emitRecordArtifacts } from "../src/emit-records.mjs";
+import { HUNDRED_COHORT_CPS } from "../src/fixed-cohorts.mjs";
+import { selectRecordCohort } from "../src/record-cohort.mjs";
+import { buildRecordReport, isCompleted, recordResults, writeRecordReport } from "../src/record-report.mjs";
+import { createRecordConsole } from "../src/record-console.mjs";
 import { runRecords } from "../src/stages/records.mjs";
 import { emit, onEvent } from "../src/log.mjs";
 import { pool } from "../src/pool.mjs";
-import { factoryStats, freezeEvaluationHoldout, releaseOwnedCheckpoints } from "../src/state.mjs";
+import { factoryStats, freezeEvaluationHoldout, releaseOwnedCheckpoints, replaceSelection, selectedEntities } from "../src/state.mjs";
 import { runAdjudicate } from "../src/stages/adjudicate.mjs";
 import { runEnrich } from "../src/stages/enrich.mjs";
 import { runContrast } from "../src/stages/contrast.mjs";
@@ -60,6 +65,11 @@ Usage:
   generator emit [--allow-partial] [--legacy]
   generator tui [--limit=100] [--wave-size=100] [--autopilot]
 
+--100 (run or tui): restrict selection to the fixed smoke-test cohort also
+  used by \`test.sh --100\` (src/fixed-cohorts.mjs), instead of the normal
+  planned corpus. Uses the main checkpoint database, so progress is resumable
+  across runs exactly like any other run/tui invocation.
+
 Compatibility:
   generator --headless --stage=g --limit=100 --verbose
 
@@ -96,7 +106,6 @@ async function runAutopilot(_limit, waveEntities = config.autopilotWaveEntities)
     policy: "breadth_first",
   });
   try {
-    if (normalized === "records") return await runRecords(limit);
     while (true) {
       cycle++;
       const stages = await runAutopilotWave({
@@ -136,6 +145,7 @@ async function runStage(stage, limit) {
   if (normalized === "all") return runAutopilot(limit, waveSize);
   emit("stage", { stage: normalized, running: true });
   try {
+    if (normalized === "records") return await runRecords(limit);
     if (normalized === "blind_ground") return await runBlindGround(limit);
     if (normalized === "enrich") return await runEnrich(limit);
     if (normalized === "contrast") return await runContrast(limit);
@@ -170,11 +180,50 @@ const threads = positiveInteger(args.threads, config.threads, "--threads");
 if (threads > config.maxThreads) throw new Error(`--threads cannot exceed ${config.maxThreads}`);
 pool.setThreads(threads);
 
-if (args.verbose && command !== "tui") {
+const cohortConsole = command === "run" && args["100"]
+  && ["records", "all"].includes(stageAliases[String(args.stage ?? args._[1] ?? "records")]);
+if (args.verbose && command !== "tui" && !cohortConsole) {
   onEvent(({ type, data }) => {
     if (type === "worker_text") process.stdout.write(data.delta);
     else if (!["tokens", "queue"].includes(type)) console.error(`[${type}] ${JSON.stringify(data).slice(0, 1000)}`);
   });
+}
+
+// Same fixed charset as `test.sh --100`, but selected against the main
+// checkpoint database instead of an isolated one, so records already
+// completed for these entities are skipped on the next invocation.
+function selectHundredCohort() {
+  const cohort = selectRecordCohort(readReferenceCorpus(), { cps: HUNDRED_COHORT_CPS });
+  replaceSelection(cohort.entities, STAGE_VERSIONS.select);
+  return cohort;
+}
+
+let hundredCohort = null;
+const HUNDRED_REPORT = resolve(config.outDir, "run100.json");
+
+// Same JSON as the test.sh report, but only for characters that already have a
+// result: the file grows toward the full cohort across runs instead of being
+// rewritten from scratch, because the checkpoints it reads survive restarts.
+function saveHundredReport() {
+  if (!hundredCohort) return;
+  const entities = selectedEntities();
+  const results = recordResults(entities).filter((row) => row.status !== "not_started");
+  const status = results.filter(isCompleted).length === entities.length ? "complete" : "running";
+  return writeRecordReport([HUNDRED_REPORT], buildRecordReport({ entities, cohort: hundredCohort, status, results,
+    runDirectory: config.runsDir }));
+}
+
+function ensureSelection() {
+  if (args["100"]) {
+    hundredCohort = selectHundredCohort();
+    onEvent(({ type, data }) => {
+      if (type === "stage_progress" && data.stage === "records") saveHundredReport();
+    });
+    saveHundredReport();
+    return;
+  }
+  if (factoryStats().selection.total === 0) planCorpus();
+  else freezeEvaluationHoldout();
 }
 
 if (command === "plan") {
@@ -197,14 +246,27 @@ if (command === "plan") {
     : await emitRecordArtifacts({ allowPartial: Boolean(args["allow-partial"]) });
   console.log(directory);
 } else if (command === "run") {
-  if (factoryStats().selection.total === 0) planCorpus();
-  else freezeEvaluationHoldout();
+  ensureSelection();
   const stage = args.stage ?? args._[1] ?? "records";
-  const completed = await runStage(stage, limit);
-  console.log(`\n${stageAliases[String(stage)] ?? stage}: ${completed} work item(s) completed`);
+  const terminal = cohortConsole ? createRecordConsole({ total: hundredCohort.entities.length,
+    initialResults: recordResults(hundredCohort.entities) }) : null;
+  terminal?.start({ directory: config.runsDir, reportPath: HUNDRED_REPORT,
+    model: config.model, version: STAGE_VERSIONS.records });
+  const stopProgress = terminal ? onEvent(({ type, data }) => {
+    if (type === "stage_progress" && data.stage === "records" && data.entity) {
+      terminal.result(recordResults([data.entity])[0]);
+    }
+  }) : null;
+  try {
+    const completed = await runStage(stage, limit);
+    const summary = saveHundredReport();
+    if (terminal) terminal.finish(summary, HUNDRED_REPORT);
+    else console.log(`\n${stageAliases[String(stage)] ?? stage}: ${completed} work item(s) completed`);
+  } finally {
+    stopProgress?.();
+  }
 } else if (command === "tui") {
-  if (factoryStats().selection.total === 0) planCorpus();
-  else freezeEvaluationHoldout();
+  ensureSelection();
   let running = false;
   const guarded = async (label, fn) => {
     if (running) {
@@ -214,7 +276,7 @@ if (command === "plan") {
     running = true;
     try { await fn(); }
     catch (error) { emit("stage_error", { stage: label, error: error.stack ?? error.message }); }
-    finally { running = false; }
+    finally { running = false; saveHundredReport(); }
   };
   const startAutopilot = () => guarded("autopilot", () => runAutopilot(limit, waveSize));
   buildTui({
@@ -222,7 +284,10 @@ if (command === "plan") {
     onPause: (value) => pool.setPaused(value),
     onStage: (stage) => guarded(stage, () => runStage(stage, limit)),
     onAutopilot: startAutopilot,
-    onPlan: () => guarded("plan", async () => { planCorpus({ target: config.targetEntities }); }),
+    onPlan: () => guarded("plan", async () => {
+      if (args["100"]) selectHundredCohort();
+      else planCorpus({ target: config.targetEntities });
+    }),
     onEmit: () => guarded("emit", async () => { await emitRecordArtifacts({ allowPartial: true }); }),
     onQuit: () => emit("stage", { stage: "tui", running: false }),
   });

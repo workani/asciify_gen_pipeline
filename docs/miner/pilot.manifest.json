@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "release": "archive.org-stackexchange-uploaded-2024-04",
+  "catalog": "https://archive.org/metadata/stackexchange",
+  "sites": [
+    {
+      "site": "math.stackexchange.com",
+      "archive": {
+        "url": "https://archive.org/download/stackexchange/math.stackexchange.com.7z",
+        "catalog_size": 3629699855,
+        "etag": "\"66120261-d858d30f\"",
+        "catalog_mtime": "1712456289"
+      }
+    },
+    {
+      "site": "tex.stackexchange.com",
+      "archive": {
+        "url": "https://archive.org/download/stackexchange/tex.stackexchange.com.7z",
+        "catalog_size": 777802350,
+        "etag": "\"6611d7cd-2e5c526e\"",
+        "catalog_mtime": "1712445389"
+      }
+    }
+  ]
+}

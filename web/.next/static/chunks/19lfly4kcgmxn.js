@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,38999,t=>{"use strict";var e=t.i(43476),o=t.i(75517),n=t.i(90090);t.s(["default",0,function(){let{snapshot:t,connection:i,restart:s}=(0,n.useRunFeed)("demo");return(0,e.jsx)(o.Dashboard,{snapshot:t,connection:i,title:"Miner",onRestart:s})}])}]);

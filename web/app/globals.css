@@ -1,0 +1,109 @@
+/* ── Generator dashboard ─────────────────────────────────────────
+   Tokens carried over from ../httpcodes: one world, black. No light
+   variant, no theme stamp — the page paints every colour explicitly
+   so it holds on any host ground. Corners are 2px, not pill-round.
+   Rules are hairlines, not boxes.
+   ---------------------------------------------------------------- */
+:root {
+  --bg: #000000;
+  --surface: #0a0a0b;
+  --surface-2: #131315;
+  --line: #1b1b1e;
+  --line-2: #2c2c31;
+
+  --ink: #eceae5;
+  --ink-2: #8b8b91;
+  --ink-3: #55555b;
+
+  /* White is the accent. The signal classes carry all the other colour. */
+  --accent: #eceae5;
+  --on-accent: #000000;
+
+  --c2: #3fdd97;
+  --c3: #56a6f5;
+  --c4: #f0a63c;
+  --c5: #f4576d;
+
+  --c2-soft: color-mix(in srgb, var(--c2) 11%, #000);
+  --c3-soft: color-mix(in srgb, var(--c3) 11%, #000);
+  --c4-soft: color-mix(in srgb, var(--c4) 11%, #000);
+  --c5-soft: color-mix(in srgb, var(--c5) 11%, #000);
+
+  --c2-line: color-mix(in srgb, var(--c2) 34%, #000);
+  --c3-line: color-mix(in srgb, var(--c3) 34%, #000);
+  --c4-line: color-mix(in srgb, var(--c4) 34%, #000);
+  --c5-line: color-mix(in srgb, var(--c5) 34%, #000);
+
+  --r: 2px;
+
+  --mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+  --inter: var(--font-inter), "Inter Fallback", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: #000000;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.025em; line-height: 1.1; }
+p { margin: 0; }
+
+/* ── primitives ─────────────────────────────────────────────── */
+.label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

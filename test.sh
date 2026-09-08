@@ -46,15 +46,10 @@ if [ -f "$REPORT_FILE" ]; then
   rm -f -- "$REPORT_FILE"
 fi
 if [ "$RUN_MODE" = 100 ]; then
-  # 75 additions: arrows (10), typography/spacing (15), mathematics (15),
-  # shapes (10), currency/UI symbols (10), and everyday emoji (15).
-  EXTRA_CPS=2190,2191,2192,2193,2194,2195,21a9,21aa,21ba,21bb
-  EXTRA_CPS="$EXTRA_CPS,a0,ad,2009,200b,200d,2013,2018,2019,201c,201d,2026,b7,a7,b6,2020"
-  EXTRA_CPS="$EXTRA_CPS,b1,d7,f7,2212,221a,221e,2248,2264,2265,2211,220f,222b,2205,2208,2229"
-  EXTRA_CPS="$EXTRA_CPS,25a0,25a1,25b2,25bc,25b6,25c0,25cf,25cb,2605,2606"
-  EXTRA_CPS="$EXTRA_CPS,a9,ae,2122,20ac,a3,a5,2713,2717,26a0,23ce"
-  EXTRA_CPS="$EXTRA_CPS,2764,1f600,1f602,1f60d,1f622,1f44d,1f44e,1f44f,1f4aa,1f525,2728,1f389,1f4a1,1f512,1f680"
-  set -- "$@" --cps="$LATEST_CPS,$OLD_CPS,$EXTRA_CPS" --print=100
+  # Charset lives in src/fixed-cohorts.mjs, the single source of truth shared
+  # with `generator run|tui --100` so both paths exercise the same characters.
+  HUNDRED_CPS=$(node -e "import('$GENERATOR_ROOT/src/fixed-cohorts.mjs').then(m => process.stdout.write(m.HUNDRED_COHORT_HEX))")
+  set -- "$@" --cps="$HUNDRED_CPS" --print=100
 elif [ "$RUN_MODE" = hand ]; then
   set -- "$@" --cps=1faac --print=1
 elif [ "$#" -eq 0 ]; then

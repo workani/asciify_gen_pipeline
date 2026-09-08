@@ -8,3 +8,5 @@ out/*
 !.gitkeep
 .DS_Store
 .ucd/
+.miner-work/
+__pycache__/

@@ -143,7 +143,7 @@ export async function runRecords(limit = 100) {
       return entity ? { entity, size: 1 } : null;
     },
     run: ({ entity }) => processRecord(entity),
-    onProgress: ({ completed, scheduled }) => emit("stage_progress", { stage: "records", processed: completed, scheduled, requested: limit }),
+    onProgress: ({ completed, scheduled, unit }) => emit("stage_progress", { stage: "records", processed: completed, scheduled, requested: limit, entity: unit.entity }),
   });
   return result.completed;
 }

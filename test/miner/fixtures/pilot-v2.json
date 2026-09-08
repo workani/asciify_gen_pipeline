@@ -1,0 +1,279 @@
+{
+  "purpose": "Calibration regressions selected from the pilot; not a held-out evaluation or human gold",
+  "cases": [
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 565,
+      "kind": "comment",
+      "id": 660,
+      "fields": {
+        "Text": "well it is one of those edge cases, so I know that the grammatically correct answer is `...you, I, and \"thehulk66\"` but this sounds awkward so I'm looking for a new way to phrase it to (a) avoid the grammar mistake and (b) keeps stress on \"thehulk66\"."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 1842,
+      "kind": "comment",
+      "id": 2279,
+      "fields": {
+        "Text": "I'm looking for a nice domain's name for a personal blog of movie critic. Could you suggest me something?"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 2928,
+      "kind": "comment",
+      "id": 4052,
+      "fields": {
+        "Text": "Hm, not bad.  I'm looking for it possibly to carry a more negative connotation, so it can be tied it with the \"fearing thought more than ruin\".  Although I like \"elusive\" because it's kind of mysterious, so it's ok.  Also, let me update with a little bit more clarification."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 3705,
+      "kind": "comment",
+      "id": 5460,
+      "fields": {
+        "Text": "This is exactly what I'm looking for... a term that describes those three words (possibly more?) all at once."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 5089,
+      "kind": "comment",
+      "id": 7753,
+      "fields": {
+        "Text": "I like both words, but I believe resignation is a little more appropriate in the context I plan to use it in, but, I'm looking forward to adding Acquiescence to my vocabulary!"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "contractions",
+      "site": "english.stackexchange.com",
+      "qid": 6187,
+      "kind": "comment",
+      "id": 9452,
+      "fields": {
+        "Text": "Effective kind of works, but it doesn't have the exact feel that I'm looking for. Still +1 for a workable answer."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 1271,
+      "kind": "comment",
+      "id": 2776,
+      "fields": {
+        "Text": "@kiamlaluno That is interesting. Definitely looks like a noun; I don't know enough Italian to speculate on what is going on there."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 1976,
+      "kind": "comment",
+      "id": 3479,
+      "fields": {
+        "Text": "Thanks for this, looks like a great resource. For what it's worth, the Staffordshire voice sounds the most \"neutral\" to my midwestern US ear."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 2912,
+      "kind": "comment",
+      "id": 4516,
+      "fields": {
+        "Text": "Assuming it's me you'd like to elaborate, the past conditional would go like this: If I knew that information when I finished school, I've forgotten it now. (Maybe I knew it, maybe I didn't.)  Contrast with a typical contrary to fact conditional: If I had known you were coming, I would have hidden the vodka. (The point is that I _didn't_ know you were coming.) It could also be phrased, \"Had I known...\" It looks like a past perfect, but is actually past tense subjunctive mood."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 79,
+      "kind": "comment",
+      "id": 4679,
+      "fields": {
+        "Text": "That looks like a challenge.  \"However experienced a police officer is, encountering....\"  \"'However,' he said, 'you still aren't marrying my daughter.'\""
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 5713,
+      "kind": "comment",
+      "id": 8677,
+      "fields": {
+        "Text": "@VonC: Thank you, and I'm glad you like the jokes in my description. Please note that I did not use jokebuddha, believe it or not, but came up with both on my own a long time ago. Apparently I was not the only one. But jokebuddha looks like a fun site, so thanks for that."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "article",
+      "site": "english.stackexchange.com",
+      "qid": 7597,
+      "kind": "comment",
+      "id": 11998,
+      "fields": {
+        "Text": "This is a quote from Wikipedia on \"litotes\". It is indeed to the point: this is the context that leads readers to interpret \"not cheap\" as the opposite of cheap. // Note that the first sentence is misleading, because it looks like a definition, which it is not, since litotes is only about negating opposites, not merely about understatement. \"Most often\" is wrong, it should be left out. Lastly, the interpretation of litotes is never \"mediocre\": that is when an apparent litotes turns out to be no litotes at all."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 1770,
+      "kind": "comment",
+      "id": 2295,
+      "fields": {
+        "Text": "Random examples of the phrase \"uppercase letters\" being used when talking about programming:\nhttp://www.google.com/search?sourceid=chrome&ie=UTF-8&q=%22uppercase+letters%22+php"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 2054,
+      "kind": "comment",
+      "id": 2688,
+      "fields": {
+        "Text": "@cindi: My native language is Swedish, and we only have one word for is/are: **är** http://translate.google.com/translate_t?hl=&ie=UTF-8&text=are&sl=en&tl=sv#"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 1431,
+      "kind": "comment",
+      "id": 8106,
+      "fields": {
+        "Text": "Several Japanese dictionaries state that the Japanese word “bitamin” came from the _German_ word “Vitamin,” where the first vowel is short (rather than the said British pronunciation of “vitamin”).  If you read Japanese, please check http://dic.yahoo.co.jp/dsearch?enc=UTF-8&p=%E3%83%93%E3%82%BF%E3%83%9F%E3%83%B3&dtype=0&dname=0na&stype=0 and http://dic.yahoo.co.jp/dsearch?enc=UTF-8&p=%E3%83%93%E3%82%BF%E3%83%9F%E3%83%B3&dtype=0&dname=0ss&stype=0."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 1431,
+      "kind": "comment",
+      "id": 8106,
+      "fields": {
+        "Text": "Several Japanese dictionaries state that the Japanese word “bitamin” came from the _German_ word “Vitamin,” where the first vowel is short (rather than the said British pronunciation of “vitamin”).  If you read Japanese, please check http://dic.yahoo.co.jp/dsearch?enc=UTF-8&p=%E3%83%93%E3%82%BF%E3%83%9F%E3%83%B3&dtype=0&dname=0na&stype=0 and http://dic.yahoo.co.jp/dsearch?enc=UTF-8&p=%E3%83%93%E3%82%BF%E3%83%9F%E3%83%B3&dtype=0&dname=0ss&stype=0."
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 5523,
+      "kind": "comment",
+      "id": 8444,
+      "fields": {
+        "Text": "What you mentioned is just one of the meanings of 'score'. http://www.google.co.in/search?q=define%3A+score&ie=utf-8&oe=utf-8&aq=t&rls=org.mozilla:en-US:official&client=firefox-a"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "url",
+      "site": "english.stackexchange.com",
+      "qid": 5523,
+      "kind": "comment",
+      "id": 8444,
+      "fields": {
+        "Text": "What you mentioned is just one of the meanings of 'score'. http://www.google.co.in/search?q=define%3A+score&ie=utf-8&oe=utf-8&aq=t&rls=org.mozilla:en-US:official&client=firefox-a"
+      },
+      "expected_status": "unrelated"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 5058,
+      "kind": "post",
+      "id": 5058,
+      "fields": {
+        "Title": "Finding out the names of symbols",
+        "Body": "<p>Is there a comprehensive list on the web where I can find the names of common symbols? Google unfortunately doesn't search on symbols, so it is pretty much useless there.</p>\n\n<p>Specifically, what is <code>`</code> called (the symbol to the left of <kbd>1</kbd> on US keyboards)?</p>\n",
+        "Tags": "|punctuation|symbols|"
+      },
+      "expected_status": "character_request"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 166544,
+      "kind": "post",
+      "id": 166544,
+      "fields": {
+        "Title": "Name of the archaic \"F\" character used for an \"S\"",
+        "Body": "<p>Into the 19<sup>th</sup> century, accepted orthography often used a letter character that resembles an F (but is not in fact identical to an F) when today we would invariably use an S.</p>\n\n<ul>\n<li>What is this character called? </li>\n<li>What were the orthographic rules of its usage? </li>\n<li>Was it inherited from the German language? </li>\n</ul>\n",
+        "Tags": "|orthography|typography|"
+      },
+      "expected_status": "character_request"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 166544,
+      "kind": "comment",
+      "id": 346476,
+      "fields": {
+        "Text": "It's an S. OK, OK, if you want to be more specific, it's a \"long S\". There were no rules of usage, and don't listen to anyone who tries to tell you otherwise. The glyph predates the German language."
+      },
+      "expected_status": "character_discussion"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 177459,
+      "kind": "post",
+      "id": 177459,
+      "fields": {
+        "Title": "What is the name of the pronunciation symbol /o/ with a dot over it?",
+        "Body": "<p>What is the name of the pronunciation symbol /o/ with a dot over it?  We know it is pronounced /aw/ but need to know what the name of the symbol is.</p>\n",
+        "Tags": "|single-word-requests|pronunciation|symbols|"
+      },
+      "expected_status": "character_request"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 56119,
+      "kind": "post",
+      "id": 56119,
+      "fields": {
+        "Title": "What is this symbol called: “¶”",
+        "Body": "<p>I'm trying to find out what this symbol means and if it has a name:</p>\n<blockquote>\n<h1>¶</h1>\n</blockquote>\n<p>I've seen it being used in word processors.</p>\n",
+        "Tags": "|punctuation|symbols|"
+      },
+      "expected_status": "character_request"
+    },
+    {
+      "origin": "useful_thread_spot_check",
+      "site": "english.stackexchange.com",
+      "qid": 40379,
+      "kind": "post",
+      "id": 40379,
+      "fields": {
+        "Title": "Is there a proper name for the 3 asterisks that are used to suggest temporal discontinuity?",
+        "Body": "<p>For example, when some long prose passage ends, this appears:</p>\n\n<p>* *  *</p>\n\n<p>Then some new prose passage begins.  The three asterisks dividing the two prose sections are understood to divide the two sections into non-continuous temporal spaces.</p>\n\n<p>I am interested in knowing if there is a <em>specific name</em> to describe <em>symbolic or graphical</em> markings that are meant to suggest <em>temporal discontinuity</em>. </p>\n",
+        "Tags": "|punctuation|writing|books|symbols|"
+      },
+      "expected_status": "character_request"
+    }
+  ]
+}

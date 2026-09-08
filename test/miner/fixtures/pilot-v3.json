@@ -1,0 +1,145 @@
+{
+  "purpose": "Exact-source calibration regressions from the v3 diagnostic audit; not held-out or human-gold labels.",
+  "cases": [
+    {
+      "site": "english.stackexchange.com",
+      "qid": 166592,
+      "kind": "comment",
+      "id": 346571,
+      "fields": {
+        "Text": "@J.C.Salomon I'm trying to come up with a name for my app."
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 190291,
+      "kind": "post",
+      "id": 190291,
+      "fields": {
+        "Title": "Why does the word \"tortilla\" refer to three distinct types of edibles?",
+        "Body": "<p>The crisps[BrEn]/chips[AmEn] that are made of corn (and probably not deep-fried) are called <em>tortilla</em>:</p>\n\n<p><img src=\"https://www.auchandirect.fr/static/images/products/detail/91788.jpg\" alt=\"Mustard yellow, 400g bag of tortilla chips. There is a see through window in the bag, so the chips are visible.\"></p>\n\n<p>The wraps with that special taste, are called <em>tortila</em>:</p>\n\n<p><img src=\"https://corsarionegro.files.wordpress.com/2011/10/tortillas.jpg\" alt=\"A stack of tortilla pancakes, two are leaning against the left hand side, as if they slipped off.\"></p>\n\n<p>And then, the omelet-like meal is called <em>tortilla</em>!</p>\n\n<p><img src=\"https://i.stack.imgur.com/4Aq3C.jpg\" alt=\"Tortilla omlette on a circular wooden board with a slice resting on a cake slice. A metal fork is resting on top of the omlette.\"></p>\n\n<p>I can understand that the first usage is probably derived from the second, since I saw something saying that frying the wraps, you can make the chips; but the third usage is not related to these two at all.</p>\n\n<p>What's the commonality among these three that has made the English use the same word for all of them? Or is it just a random confusion/carelessness after borrowing the edible + the name from Mexican and Spanish in different periods of time?</p>\n",
+        "Tags": "|word-choice|etymology|ambiguity|"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 367293,
+      "kind": "post",
+      "id": 367293,
+      "fields": {
+        "Title": "What are the strings outside the baseball bat called?",
+        "Body": "<p>So I found a cartoon;</p>\n\n<p><a href=\"https://i.stack.imgur.com/TrSzY.jpg\" rel=\"nofollow noreferrer\"><img src=\"https://i.stack.imgur.com/TrSzY.jpg\" alt=\"cartoon\"></a></p>\n\n<p>There are some strings coming out from the end of the bat. What are they called?</p>\n",
+        "Tags": "|image-identification|"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 467881,
+      "kind": "post",
+      "id": 467881,
+      "fields": {
+        "Title": "Comparatives and superlatives for the word \"statistic\"",
+        "Body": "<p>Let's say, there was a bar chart giving 2 different pieces of data for 3 groups.</p>\n\n<p><a href=\"https://i.stack.imgur.com/fHvIt.png\" rel=\"nofollow noreferrer\"><img src=\"https://i.stack.imgur.com/fHvIt.png\" alt=\"a bar chart giving 2 different pieces of data for 3 groups\"></a></p>\n\n<hr>\n\n<blockquote>\n  <p><strong>- <code>Monkeys</code> was the <code>______________</code> statistic.</strong></p>\n</blockquote>\n\n<hr>\n\n<p><em>If you needed to complete the sentence above with <strong><code>a superlative adjective</code></strong>, what would you fill in the blank?</em></p>\n",
+        "Tags": "|comparatives|superlative-degree|ielts|"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 7482,
+      "kind": "history",
+      "id": 16375,
+      "fields": {
+        "Text": "\"Egoism\" would be the term properly formed of its Latin/Greek parts: ego + -ismus/-ismos. The t in \"egotism\" probably came from analogy to some -ismes in French that have an intrusive t, which is acceptable in French. The Trésor de la Langue Française informatisé and the Oxford English Dictionary seem to agree that the word was probably coined in English, in the colony of Port-Royal around 1714*. Since the intrusive t is not a native phonological instrument in English, it may be considered a Gallicism, not a borrowing from French; for that reason, some call \"egotism\" a malformation. Others say that such an attack on the intrusive t is unfair and that it should be accepted as English. The choice is probably mostly a matter of aesthetics and not very important.\r\n\r\nTo some, \"egotism\" means being self-centred, whereas \"egoism\" is restricted to philosophy (solipsism etc.); however, it seems that this distinction is so blurred that both can be used for self-centredness. I think this is how it is used by most.\r\n\r\n---\r\n*) OED, on egotism: \r\n\r\n> If the statement of Addison (quot.\r\n> 1714) can be trusted, the word seems\r\n> to have been invented by some of the\r\n> Port-Royalists to range with the terms\r\n> of rhetoric denoting ‘figures of\r\n> speech’ and the like.\r\n\r\nTLFi, on égotisme: \r\n\r\n> (1714, ADDISON, Spect. no 562, p. 3 ds\r\n> NED : the Gentlemen of Port-Royal ...\r\n> branded this form of writing in the\r\n> first person with the name of an\r\n> egotism)\r\n\r\nTLFi, on égoïsme: \r\n\r\n> Étymol. et Hist. 1755 (Encyclop. t. 5\r\n> : Mm. de Port-Royal ont généralement\r\n> banni de leurs écrits l'usage de\r\n> parler d'eux-mêmes à la première\r\n> personne [...] Pour en marquer leur\r\n> éloignement, ils l'ont tourné en\r\n> ridicule sous le nom d'égoïsme, adopté\r\n> depuis dans notre langue)"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 546985,
+      "kind": "post",
+      "id": 546985,
+      "fields": {
+        "Title": "How to add possessive to comma clause specifying pronoun?",
+        "Body": "<p>Not exactly sure what the comma rule is called, but how would I add a possessive in the following sentence where the dog belongs to David?</p>\n<blockquote>\n<p>I had to take my brother, David, ('s?) dog to the vet.</p>\n</blockquote>\n",
+        "Tags": "|punctuation|comma-splices|"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 97203,
+      "kind": "post",
+      "id": 97203,
+      "fields": {
+        "Title": "What is it called when punctuation changes the meaning of a sentence?",
+        "Body": "<p>Is there a word describing a sentence whose meaning is changed by moving the punctuation? For example,</p>\n\n<blockquote>\n  <p>Let’s eat, Mommy!</p>\n</blockquote>\n\n<p>and</p>\n\n<blockquote>\n  <p>Let’s eat Mommy!</p>\n</blockquote>\n",
+        "Tags": "|meaning|punctuation|"
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 545291,
+      "kind": "post",
+      "id": 545292,
+      "fields": {
+        "Title": "",
+        "Body": "<p>All three sound possible but the first, because of the delayed &quot;that&quot; clause has a somewhat chaotic feel. An essential point, though, is that the first two are not equivalent to the third, that being so because of the lack of a comma after &quot;built&quot; in that third one; this particularity in the third formulation makes its &quot;which&quot; clause a <em>defining relative clause</em> (also called a restrictive clause and a descriptive clause), which the first two aren't (non restrictive clauses). Therefore, this minimizing approach is not valid in the third sentence (supposing that the non restrictive option is the one chosen). (<a href=\"https://dictionary.cambridge.org/grammar/british-grammar/relative-clauses-defining-and-non-defining\" rel=\"nofollow noreferrer\">English grammar</a>)</p>\n",
+        "Tags": ""
+      },
+      "expected_candidate": false
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 302,
+      "kind": "post",
+      "id": 73741,
+      "fields": {
+        "Title": "",
+        "Body": "<p>The Chicago Manual of Style refers to them as \"braces\".</p>\n\n<blockquote>\n  <p><strong>6.102</strong>\n  \"Braces, {}, often called curly brackets, provide yet another option for enclosing data and are used in various ways in certain\n  programming languages. They are also used in mathematical and other\n  specialized writing (see, e.g., 12.28). They are not interchangeable\n  with parentheses or brackets. See the example phrases throughout\n  chapter 5 for one possible use of braces.\"\n  <a href=\"http://www.chicagomanualofstyle.org/16/ch06/ch06_sec102.html\">http://www.chicagomanualofstyle.org/16/ch06/ch06_sec102.html</a> </p>\n  \n  <p><strong>12.28</strong>\n  Set notation Braces are used to delimit the elements of a set, and other delimiters should not be substituted. For example,\n  {a<sub>1</sub>,a<sub>2</sub>,...a<sub>n</sub>}\n  <a href=\"http://www.chicagomanualofstyle.org/16/ch12/ch12_sec028.html\">http://www.chicagomanualofstyle.org/16/ch12/ch12_sec028.html</a></p>\n</blockquote>\n\n<p>You will find this use of the word \"brace\" to be supported by dictionary definitions.</p>\n\n<p><a href=\"http://www.merriam-webster.com/dictionary/brace?show=1&amp;t=1341592270\">http://www.merriam-webster.com/dictionary/brace?show=1&amp;t=1341592270</a>\nhttp://education.yahoo.com/reference/dictionary/entry/brace\n<a href=\"http://dictionary.reference.com/browse/brace\">http://dictionary.reference.com/browse/brace</a></p>\n",
+        "Tags": ""
+      },
+      "expected_candidate": true
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 255262,
+      "kind": "post",
+      "id": 255262,
+      "fields": {
+        "Title": "What is the name of the symbols \"<\" and \">\"?",
+        "Body": "<p>I know that <strong>^</strong> is called a <em>caret</em>, but this doesn't seem to apply to the similarly shaped but nonetheless different <strong>&lt;</strong> and <strong>></strong> symbols. The only names I've heard them called is the <em>less-than sign</em> and the <em>greater-than sign</em>, but those names seem rather informal and apply only to their use in math. The symbols are used in other contexts as well, so it seems they would have less specific names.</p>\n\n<p>Does anyone know the technical term for these symbols? (I know that some symbols, like <strong>.</strong> and <strong>( )</strong>, have different names in American and British English, so any differences there with <strong>&lt;</strong> and <strong>></strong> would be appreciated as well.)</p>\n",
+        "Tags": "|word-choice|typography|symbols|"
+      },
+      "expected_candidate": true
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 52111,
+      "kind": "post",
+      "id": 52131,
+      "fields": {
+        "Title": "",
+        "Body": "<p>The 8-) Emoticon represents a smiling face wearing sunglasses (shades is an informal word for sunglasses as mentioned above).  The emoticon is taken to refer to the context being 'cool' (informal for good).  </p>\n",
+        "Tags": ""
+      },
+      "expected_candidate": true
+    },
+    {
+      "site": "english.stackexchange.com",
+      "qid": 58014,
+      "kind": "post",
+      "id": 58021,
+      "fields": {
+        "Title": "",
+        "Body": "<p>I am a fan of Asterix (also Obelix), and what you should call * is asterisk. :)</p>\n\n<p>It is called star because it looks like one, and also aster- is a Latin root for star, viz. astral, astronomy, astronaut, astrology etc. So, in essence it is just a formal name of the same sense of a term.</p>\n\n<p>As for ?, you can call it <strong>interrogation point, interrogation mark, question point, query or eroteme</strong>  Check this: <a href=\"http://en.wikipedia.org/wiki/Question_mark\">http://en.wikipedia.org/wiki/Question_mark</a></p>\n\n<p>Hook should be more appropriate for the inverted '?'.</p>\n",
+        "Tags": ""
+      },
+      "expected_candidate": true
+    }
+  ]
+}
