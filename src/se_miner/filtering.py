@@ -3,6 +3,7 @@
 KEEP and REVIEW are retained separately; neither resolves a Unicode target.
 No model calls, source-ID allowlists, or reference labels are used at runtime.
 """
+import ast
 import hashlib
 from pathlib import Path
 import re
@@ -13,8 +14,31 @@ from .targets import inventory, WRITING, NAME, MARK, ACCENT
 from .textviews import make_view, views
 
 VERSION = "target-evidence-6"
-RULE_HASH = hashlib.sha256(b"".join((Path(__file__).parent / name).read_bytes()
-    for name in ("filtering.py", "structure.py", "targets.py", "textviews.py", "references.py"))).hexdigest()
+RULE_FILES = ("filtering.py", "structure.py", "targets.py", "textviews.py", "references.py")
+
+
+def _semantic_source(path):
+    """Structure only. Comments, docstrings and formatting cannot change how a
+    document is classified, but hashing raw bytes over them invalidates the
+    work-directory contract and strands a run mid-scan. Every real change to a
+    pattern, threshold or branch still moves the hash."""
+    def is_prose(statement):
+        # A bare string statement is a docstring or a stray note. Either way it
+        # is evaluated and discarded, so it cannot affect classification.
+        return (isinstance(statement, ast.Expr) and isinstance(getattr(statement, "value", None), ast.Constant)
+                and isinstance(statement.value.value, str))
+
+    tree = ast.parse(path.read_text())
+    for node in ast.walk(tree):
+        for field in ("body", "orelse", "finalbody"):
+            block = getattr(node, field, None)
+            if isinstance(block, list):
+                setattr(node, field, [s for s in block if not is_prose(s)])
+    return ast.dump(tree, annotate_fields=True, include_attributes=False)
+
+
+RULE_HASH = hashlib.sha256("\x00".join(
+    _semantic_source(Path(__file__).parent / name) for name in RULE_FILES).encode()).hexdigest()
 
 # Frames expose an object start. Acceptance checks its typed prefix, never
 # an arbitrary topic elsewhere in the sentence.

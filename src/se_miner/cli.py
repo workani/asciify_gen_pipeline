@@ -40,6 +40,11 @@ def parser():
         s.add_argument("--threshold", type=int, default=DEFAULTS["threshold"])
         s.add_argument("--rejected-sample", type=int, default=DEFAULTS["rejected_sample"], help="Bottom-k sample per site and source kind")
         s.add_argument("--batch", type=int, default=DEFAULTS["batch"], help="Rows per transaction; each commit costs a journal write and fsync regardless of size")
+        # Scoping a run is not the same as editing the manifest. Store pins the
+        # whole manifest as the directory's contract, so handing it a filtered
+        # manifest instead would strand every checkpoint already committed here.
+        s.add_argument("--only-site", metavar="HOST", action="append",
+                       help="Restrict this run to these manifest sites; repeatable. The manifest and the pinned contract stay untouched, so another machine can mine the remaining sites into its own work directory")
         if command == "run":
             s.add_argument("--max-rows", type=int, help="Bound new rows for an ingestion smoke run; resumable, no model calls")
             s.add_argument("--no-ui", action="store_true", help="Never draw the live dashboard; stream JSON progress events to stderr")
@@ -77,6 +82,9 @@ def parser():
     s.add_argument("--site", required=True, action="append", help="Host to remove; repeatable")
     s.add_argument("--drop-index", action="store_true", help="Also delete the derived search index, which the removal invalidates")
     s.add_argument("--yes", action="store_true", help="Actually delete; without it the command only reports the plan")
+    s = sub.add_parser("adopt", help="Re-pin an existing work directory to the current rules, only if the stored samples prove no source changes verdict")
+    s.add_argument("--work-dir", default=DEFAULTS["work_dir"])
+    s.add_argument("--yes", action="store_true", help="Apply; without it the command only reports the check")
     s = sub.add_parser("catalog", help="Build a manifest from one Internet Archive metadata response; downloads no dumps")
     s.add_argument("--item", default="stackexchange")
     s.add_argument("--release", required=True, help="Explicit snapshot label; inspect catalog dates before running")
@@ -110,6 +118,17 @@ def catalog(args):
           "note": "Inspect release/source metadata. Catalog presence is not proof of completeness or currentness."})
 
 
+def select_sites(manifest, wanted):
+    """This run's plan, never the pinned contract. Manifest order is preserved."""
+    if not wanted:
+        return manifest["sites"]
+    wanted = list(dict.fromkeys(wanted))
+    missing = [host for host in wanted if host not in {site["site"] for site in manifest["sites"]}]
+    if missing:
+        raise MinerError("--only-site names sites the manifest does not list: " + ", ".join(missing))
+    return [site for site in manifest["sites"] if site["site"] in set(wanted)]
+
+
 def resume_command(args):
     """The exact command that continues this work directory, minus any row bound."""
     parts = ["python3", "scripts/mine.py", "run", args.manifest]
@@ -124,6 +143,10 @@ def resume_command(args):
         parts += ["--events", str(args.events)]
     if getattr(args, "no_events", False):
         parts.append("--no-events")
+    # Without this, resuming after Ctrl-C would drop the scope and start mining
+    # a site this machine was deliberately never meant to touch.
+    for host in getattr(args, "only_site", None) or []:
+        parts += ["--only-site", host]
     return " ".join(shlex.quote(part) for part in parts)
 
 
@@ -243,6 +266,7 @@ def ingest(args):
         try:
             if observer: observer(event(LOG, message="Loading manifest " + str(args.manifest)))
             manifest = load_manifest(args.manifest)
+            selected = select_sites(manifest, getattr(args, "only_site", None))
             budget = Budget(args.work_dir, int(args.budget_gb * 1_000_000_000))
             if observer: observer(event(LOG, message="Acquiring the exclusive writer lock"))
             with writer_lock(budget.root):
@@ -250,28 +274,31 @@ def ingest(args):
                 sources = Sources(budget, store.pin, observer=observer)
                 try:
                     if args.command == "preflight":
-                        result = [{"site": site["site"], "tables": inventory(site, sources)} for site in manifest["sites"]]
+                        result = [{"site": site["site"], "tables": inventory(site, sources)} for site in selected]
                         emit({"sites": result, "work_bytes": budget.used(), "budget_bytes": budget.limit, "transport": sources.stats})
                     else:
                         checkpoints = [dict(r) for r in store.db.execute("SELECT site,phase,ordinal,complete FROM checkpoints")]
                         observe(event(RUN_STARTED, release=manifest["release"],
                                       manifest=display_path(args.manifest),
                                       work_dir=display_path(budget.root),
-                                      sites=[s["site"] for s in manifest["sites"]],
+                                      sites=[s["site"] for s in selected],
                                       budget_bytes=budget.limit, work_bytes=budget.used(),
                                       checkpoints=checkpoints))
                         pipe = Pipeline(store, sources, args.threshold, args.rejected_sample,
                                         args.batch, observe, args.max_rows)
                         # Retained work from earlier runs counts from the first frame.
                         pipe.emit_metrics()
-                        for site in manifest["sites"]: pipe.run_site(site)
+                        for site in selected: pipe.run_site(site)
                         result = report(store.db, budget)
+                        result["scope"] = [s["site"] for s in selected]
                         result["transport"] = {k: result["transport"].get(k, 0) + v for k, v in sources.stats.items()}
                         observe(event(RUN_FINISHED, status=result["status"], warnings=result["warnings"],
                                       message="Ingestion finished: " + result["status"],
                                       reason=None if result["status"] == "complete" else
                                       "Coverage is not clean; see warnings." if result["status"] == "complete_with_warnings"
-                                      else "Some sites have unfinished phases."))
+                                      else "Some sites have unfinished phases." if len(selected) == len(manifest["sites"])
+                                      else "This run covered only " + ", ".join(result["scope"]) +
+                                           "; the directory still lacks the manifest's other sites."))
                         if not quiet_report: emit(result)
                 finally:
                     store.rollback()
@@ -375,6 +402,79 @@ def purge(args):
         db.close()
 
 
+# A work directory is pinned to the rules that built it. When rules change in a
+# way that provably changes no verdict, re-mining is waste -- but "provably" has
+# to mean replaying real stored source, not asserting it. The prior hash is kept
+# rather than overwritten, so a mixed-policy scan can never look single-policy.
+def adopt(args):
+    from .filtering import classify, fields_for
+    root = Path(args.work_dir).resolve()
+    path = root / "candidates.sqlite"
+    if not path.exists(): raise MinerError("No mining database at " + str(path))
+    db = sqlite3.connect(str(path), isolation_level=None)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA busy_timeout=5000")
+    try:
+        stored = json.loads(db.execute("SELECT value FROM meta WHERE key='contract'").fetchone()[0])
+        manifest = stored["manifest"]
+        current = {"manifest": manifest,
+                   "settings": {"filter": VERSION, "rule_hash": RULE_HASH,
+                                "threshold": args_threshold(stored), "rejected_sample": args_sample(stored)},
+                   "schema": stored.get("schema")}
+        if encode(stored) == encode(current):
+            return {"work_dir": str(root), "state": "already current", "rule_hash": RULE_HASH}
+        checks = {}
+        breaking = []
+        for table, expected in (("accepted", True), ("rejected", False)):
+            agree = 0
+            rows = db.execute("SELECT kind,raw,assessment FROM %s" % table).fetchall()
+            for kind, raw, assessment in rows:
+                row, old = json.loads(raw), json.loads(assessment)
+                verdict = classify(fields_for(kind, row))
+                if verdict["candidate"] != expected:
+                    breaking.append({"table": table, "kind": kind,
+                                     "was": old.get("status"), "now": verdict.get("status")})
+                elif verdict.get("status") == old.get("status") and verdict.get("score") == old.get("score"):
+                    agree += 1
+            checks[table] = {"checked": len(rows), "identical": agree,
+                             "verdict_changed": sum(1 for b in breaking if b["table"] == table)}
+        result = {"work_dir": str(root), "from_rule_hash": stored["settings"]["rule_hash"],
+                  "to_rule_hash": RULE_HASH, "sample_replay": checks,
+                  "applied": False,
+                  "limit": "Samples are bounded; agreement is evidence that no verdict moved, not proof."}
+        if breaking:
+            result["state"] = "refused"
+            result["breaking"] = breaking[:10]
+            raise MinerError("Stored samples change verdict under the current rules (" +
+                             str(len(breaking)) + " of them); this work directory must be re-mined. " +
+                             "Run with a new --work-dir.")
+        if not args.yes:
+            result["state"] = "checked"
+            result["note"] = "No sampled verdict changed. Re-run with --yes to re-pin."
+            return result
+        with writer_lock(root):
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                history = db.execute("SELECT value FROM meta WHERE key='adopted'").fetchone()
+                trail = json.loads(history[0]) if history else []
+                trail.append({"from": stored["settings"]["rule_hash"], "to": RULE_HASH,
+                              "at": time.time(), "sample_replay": checks})
+                db.execute("INSERT INTO meta VALUES('adopted',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (encode(trail),))
+                db.execute("UPDATE meta SET value=? WHERE key='contract'", (encode(current),))
+                db.execute("COMMIT")
+            except BaseException:
+                db.execute("ROLLBACK"); raise
+        result["state"] = "adopted"; result["applied"] = True
+        result["provenance"] = "meta.adopted records every prior rule hash; this scan is not single-policy"
+        return result
+    finally:
+        db.close()
+
+
+def args_threshold(stored): return stored["settings"].get("threshold", 3)
+def args_sample(stored): return stored["settings"].get("rejected_sample", 100)
+
+
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
@@ -387,6 +487,9 @@ def main(argv=None):
             return 0
         if args.command in ("run", "preflight"):
             return ingest(args)
+        if args.command == "adopt":
+            emit(adopt(args))
+            return 0
         if args.command == "purge":
             emit(purge(args))
             return 0

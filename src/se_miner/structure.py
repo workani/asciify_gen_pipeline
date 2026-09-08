@@ -61,8 +61,8 @@ def scan(view):
                 cursor = end
                 continue  # A literal backtick is allowed in a character question.
             content, end, kind = text[end:b], b + len(token), "code"
-        elif token.startswith("\\begin"):
-            env = ENVIRONMENT.match(hidden, a)[2]
+        elif (opener := ENVIRONMENT.match(hidden, a)) and opener[1] == "begin":
+            env = opener[2]
             depth, b, stop = 1, end, None
             for boundary in ENVIRONMENT.finditer(hidden, end):
                 if boundary[2] == env:

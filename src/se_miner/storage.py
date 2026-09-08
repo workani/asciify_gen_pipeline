@@ -154,8 +154,21 @@ class Store:
         """)
         prior = self.db.execute("SELECT value FROM meta WHERE key='contract'").fetchone()
         if prior and prior[0] != encode(contract):
+            # Name what moved. A silent "settings changed" left a 1.05M-row scan
+            # stranded because the version string had not changed with the rules.
+            was, now = json.loads(prior[0]), contract
+            detail = []
+            for key in sorted(set(was.get("settings", {})) | set(now.get("settings", {}))):
+                before, after = was.get("settings", {}).get(key), now.get("settings", {}).get(key)
+                if before != after:
+                    detail.append("%s: %s -> %s" % (key, str(before)[:16], str(after)[:16]))
+            if [s["site"] for s in was.get("manifest", {}).get("sites", [])] != \
+               [s["site"] for s in now.get("manifest", {}).get("sites", [])]:
+                detail.append("manifest sites changed")
             self.close()
-            raise MinerError("Manifest/filter settings changed; use a new work directory for a new run")
+            raise MinerError("This work directory was built with different rules (" +
+                             "; ".join(detail) + "). Use a new work directory, or reindex the "
+                             "existing one, which reclassifies saved documents without re-mining.")
         self.set_meta("contract", contract)
 
     def set_meta(self, key, value):

@@ -14,6 +14,11 @@ python3 scripts/mine.py preflight docs/miner/pilot.manifest.json
 # terminal; streams JSON progress events to stderr when redirected or --no-ui.
 python3 scripts/mine.py run docs/miner/pilot.manifest.json
 
+# Split one manifest across machines: mine a single site here and leave the
+# rest to another host's own work directory.
+python3 scripts/mine.py run docs/miner/pilot.manifest.json \
+  --only-site tex.stackexchange.com --work-dir .miner-tex
+
 # Inspect coverage and storage, including incomplete phases.
 python3 scripts/mine.py status
 
@@ -114,6 +119,8 @@ The included pilot covers English, Mathematics, and TeX. These are **the April 2
 }
 ```
 
+`--only-site HOST` (repeatable, also accepted by `preflight`) restricts one run to part of the manifest. It filters the run plan only: the pinned contract still records every manifest site, so two machines sharing a manifest keep identical contracts and an unselected site's checkpoints are never disturbed. A site left out of the run opens no source and issues no request for its archive. The flag is carried into the printed resume command, so a resumed run cannot silently widen back to the whole manifest. Coverage still judges the whole work directory, so a scoped run that finishes its own site reports `incomplete` while naming the sites it covered in `scope`; that is the directory honestly lacking the rest, not a failed run, and the exit code stays `0`.
+
 `archive` accepts a remote URL or local path. Relative paths resolve against the manifest. Alternative `files` manifests map `Posts`, `Comments`, optional `PostHistory`, and optional `PostLinks` to `{ "url": "..." }`. Individual XML and XML.gz files are supported; `compression: "gzip"` handles URLs without a `.gz` suffix. Posts and Comments are mandatory. Optional missing tables are explicitly reported. Sources may specify `sha256`; remote range sources are then hashed incrementally on the first verified read without saving the whole archive. Local files and fallback cache files are hashed, too.
 
 Generate a larger explicit manifest with **one catalog request**:
@@ -152,6 +159,8 @@ Counted together: compressed archive cache/partial downloads, candidate source t
 The allocation is dynamic. Remote range reads need no archive disk cache. SQLite uses DELETE journals, FULL synchronization, a bounded page cache, and a maximum database page count that conservatively reserves approximately another database's worth of journal space. Consequently, the retained database cannot consume the full nominal 10 GB on its own; this is deliberate headroom to uphold the cap even during transactions. Evidence is never auto-evicted to make room. An actual full disk also stops the run safely. No process can guarantee remaining physical disk capacity against unrelated concurrent writers.
 
 ## Relevance and search contracts
+
+[Independent identity/semantics selection and full-thread review packets](selection-2026-09-08.md) can now be replayed locally without invalidating v6 ingestion. Use `scripts/select-miner.py audit` for source samples and `threads` after collection; neither command calls a model.
 
 The current filter (`target-evidence-6`) parses math/code structure, inventories typed targets, then requires a naming, typing, meaning, origin or appearance relationship to that target. Finding a variable or encountering technical words such as “character” and “symbol” does not qualify a source. Direct glyph-meaning questions receive score 8. Identity evidence receives 5, discussion 4, and genuinely unresolved typing/usage context 3 (`review`). Tags and encoding background alone cannot seed collection, even with `--threshold 1`. Scores are priorities, never confidence or resolved character mappings. See [the v6 rebuild and calibration results](discovery-rebuild-2026-09-08.md).
 

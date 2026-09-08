@@ -18,7 +18,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from se_miner.archive import Archive
-from se_miner.cli import main
+from se_miner.cli import main, parser, resume_command, select_sites
 from se_miner.common import Budget, MinerError, SpaceLimit, allowed_site, load_manifest
 from se_miner.filtering import classify, fields_for, RULE_HASH, VERSION
 from se_miner.inspection import search, report, export_rows
@@ -166,6 +166,56 @@ class MiningTests(unittest.TestCase):
         pipe = Pipeline(store, sources, **kwargs)
         for site in (manifest or self.manifest)["sites"]: pipe.run_site(site)
         return sources
+
+    def two_site_manifest(self):
+        """Two hosts over the same local fixture; every table is site-keyed."""
+        value = json.loads(json.dumps(self.manifest))
+        other = json.loads(json.dumps(value["sites"][0]))
+        other["site"] = "math.stackexchange.com"
+        value["sites"] = [other, value["sites"][0]]
+        path = self.root / "two.manifest.json"
+        path.write_text(json.dumps(value))
+        return value, path
+
+    def test_only_site_mines_one_host_and_leaves_the_contract_alone(self):
+        manifest, path = self.two_site_manifest()
+        work = self.root / "scoped"
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = main(["run", str(path), "--work-dir", str(work), "--no-ui", "--no-events",
+                         "--only-site", "tex.stackexchange.com"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out.getvalue())["scope"], ["tex.stackexchange.com"])
+        db = sqlite3.connect(str(work / "candidates.sqlite"))
+        try:
+            for table in ("checkpoints", "documents", "candidates", "hits"):
+                self.assertEqual({r[0] for r in db.execute("SELECT DISTINCT site FROM " + table)},
+                                 {"tex.stackexchange.com"}, table)
+            # The unselected site is still pinned, so the other machine's
+            # directory keeps the same contract and the two stay mergeable.
+            contract = json.loads(db.execute("SELECT value FROM meta WHERE key='contract'").fetchone()[0])
+            self.assertEqual([site["site"] for site in contract["manifest"]["sites"]],
+                             ["math.stackexchange.com", "tex.stackexchange.com"])
+        finally:
+            db.close()
+        # The unfiltered manifest still opens the same directory afterwards.
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["run", str(path), "--work-dir", str(work), "--no-ui", "--no-events"]), 0)
+
+    def test_only_site_rejects_hosts_the_manifest_does_not_list(self):
+        _, path = self.two_site_manifest()
+        with self.assertRaises(MinerError):
+            select_sites(json.loads(path.read_text()), ["english.stackexchange.com"])
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = main(["run", str(path), "--work-dir", str(self.root / "absent"), "--no-ui",
+                         "--no-events", "--only-site", "english.stackexchange.com"])
+        self.assertEqual(code, 2)
+        self.assertFalse((self.root / "absent" / "candidates.sqlite").exists())
+
+    def test_resume_command_keeps_the_scope(self):
+        args = parser().parse_args(["run", "m.json", "--only-site", "tex.stackexchange.com",
+                                    "--work-dir", ".miner-tex"])
+        self.assertIn("--only-site tex.stackexchange.com", resume_command(args))
 
     def test_scope_rejects_overflow_and_lookalikes(self):
         for host in ("stackoverflow.com", "ru.stackoverflow.com", "meta.stackoverflow.com", "mathoverflow.net", "tex.stackexchange.com.evil.test", "evilstackexchange.com", "tex.stackexchange.com/path", "tex.stackexchange.com:443"):

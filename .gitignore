@@ -10,3 +10,12 @@ out/*
 .ucd/
 .miner-work/
 __pycache__/
+
+# Next.js build output & caches (web/)
+.next/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# miner event log
+.miner-work-events.jsonl

@@ -4,6 +4,7 @@ the observed math/TeX failure modes; they are calibration, not a benchmark."""
 import json
 from pathlib import Path
 import sys
+import sqlite3
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
@@ -317,3 +318,107 @@ class AcceptedSampleTests(unittest.TestCase):
         first = collect()
         self.assertEqual(first, collect(), "resuming must not change which rows are sampled")
         self.assertNotEqual(first, {1, 2, 3, 4, 5}, "a first-k sample would only show the archive's start")
+
+
+class RuleHashTests(unittest.TestCase):
+    """The work-directory contract is pinned to the rules. Hashing raw bytes
+    meant a comment could strand a run, so the hash covers structure only."""
+
+    def setUp(self):
+        self.path = Path(__file__).resolve().parents[2] / 'src/se_miner/targets.py'
+        self.original = self.path.read_text()
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        self.path.write_text(self.original)
+        self.rehash()
+
+    def rehash(self):
+        import importlib, sys as _sys
+        for name in ('se_miner.targets', 'se_miner.structure', 'se_miner.filtering'):
+            if name in _sys.modules: importlib.reload(_sys.modules[name])
+        return _sys.modules['se_miner.filtering'].RULE_HASH
+
+    def test_comments_and_docstrings_do_not_invalidate_a_work_directory(self):
+        base = self.rehash()
+        self.path.write_text(self.original + '\n# a clarifying comment\n')
+        self.assertEqual(self.rehash(), base, 'a comment must not strand a run')
+        self.path.write_text('"""Reworded module docstring."""\n' + self.original)
+        self.assertEqual(self.rehash(), base, 'a docstring must not strand a run')
+
+    def test_any_real_rule_change_still_moves_the_hash(self):
+        base = self.rehash()
+        self.path.write_text(self.original + '\nEXTRA_RULE_CONSTANT = 1\n')
+        self.assertNotEqual(self.rehash(), base)
+
+    def test_every_rule_module_is_covered(self):
+        from se_miner.filtering import RULE_FILES
+        base = self.rehash()
+        for name in RULE_FILES:
+            path = self.path.parent / name
+            source = path.read_text()
+            try:
+                path.write_text(source + '\n_COVERAGE_PROBE = 1\n')
+                self.assertNotEqual(self.rehash(), base, '%s is not covered by RULE_HASH' % name)
+            finally:
+                path.write_text(source)
+        self.assertEqual(self.rehash(), base)
+
+
+class AdoptTests(unittest.TestCase):
+    """Re-pinning a work directory to changed rules is allowed only when the
+    stored source samples prove no verdict moved, and never silently."""
+
+    def setUp(self):
+        import shutil, tempfile
+        from se_miner.common import Budget
+        from se_miner.storage import Store
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.manifest = {"version": 1, "release": "t", "sites": [{"site": "tex.stackexchange.com"}]}
+        self.store = Store(Budget(self.root / "work"), self.manifest,
+                           {"filter": "old", "rule_hash": "0" * 64, "threshold": 3, "rejected_sample": 100})
+        self.db = self.store.db
+
+    def sample(self, table, fields, assessment):
+        self.store.begin()
+        self.store._sample(table, "tex.stackexchange.com", "post",
+                           {"Id": "1", **fields}, assessment, 100)
+        self.store.commit()
+
+    def args(self, yes=False):
+        import argparse
+        return argparse.Namespace(work_dir=str(self.root / "work"), yes=yes)
+
+    def test_it_refuses_when_a_stored_sample_changes_verdict(self):
+        from se_miner.cli import adopt
+        from se_miner.common import MinerError
+        # Recorded as rejected, but the current rules clearly accept it.
+        self.sample("rejected", {"Title": "What is ‽ called?", "Body": "<p>Found ‽.</p>", "Tags": ""},
+                    {"status": "unrelated", "score": 0})
+        self.store.close()
+        with self.assertRaises(MinerError) as caught:
+            adopt(self.args(yes=True))
+        self.assertIn("must be re-mined", str(caught.exception))
+
+    def test_it_re_pins_and_keeps_the_prior_hash(self):
+        import json as _json
+        from se_miner.cli import adopt
+        from se_miner.filtering import RULE_HASH
+        self.sample("rejected", {"Title": "The weather today", "Body": "<p>It rained.</p>", "Tags": ""},
+                    {"status": "unrelated", "score": 0})
+        self.store.close()
+        checked = adopt(self.args())
+        self.assertEqual(checked["state"], "checked")
+        self.assertFalse(checked["applied"])
+        applied = adopt(self.args(yes=True))
+        self.assertEqual(applied["state"], "adopted")
+        db = sqlite3.connect(str(self.root / "work" / "candidates.sqlite"))
+        try:
+            contract = _json.loads(db.execute("SELECT value FROM meta WHERE key='contract'").fetchone()[0])
+            trail = _json.loads(db.execute("SELECT value FROM meta WHERE key='adopted'").fetchone()[0])
+        finally:
+            db.close()
+        self.assertEqual(contract["settings"]["rule_hash"], RULE_HASH)
+        self.assertEqual(trail[0]["from"], "0" * 64, "the superseded rule hash must survive")
+        self.assertEqual(trail[0]["to"], RULE_HASH)

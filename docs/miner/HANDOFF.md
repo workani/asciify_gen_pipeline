@@ -1,5 +1,7 @@
 # Remaining manual work: relevance audit
 
+Identity/semantics selection and the source-grounded review contract are now implemented. Read [selection-2026-09-08.md](selection-2026-09-08.md) first. The current v6 ingestion is resumable; selection no longer requires a fresh mining run. Full-thread model/human review and independent mapping validation remain pending.
+
 Core ingestion/search is implemented, including the v6 target-evidence filter and local evidence index. The unperformed large manual task is judging source relevance and tuning recall from real examples. Do not call the current candidate score “confidence” or treat a second model as human validation. The 24 cases in `test/miner/fixtures/pilot-v2.json` were used for calibration and must never be counted as held-out evaluation.
 
 The v6 rebuild, saved 230-source calibration replay, and remaining uncertainties are documented in [discovery-rebuild-2026-09-08.md](discovery-rebuild-2026-09-08.md). Start there; the older prompts below describe follow-up manual validation, not missing filter implementation.
@@ -16,4 +18,4 @@ Additional audit requirements after the v3 rebuild:
 
 > Read `docs/miner/search-rebuild-2026-09-07.md`. Sample each new thread category separately, including comment-only requests, image cases, duplicate-only context, and high-frequency glyphs. Use both questions and full thread evidence; an incidental comma discussion can make an unrelated question searchable without making it a valid description→character pair. Preserve ambiguous and conflicting targets as unresolved. Export exact query/evidence offsets and distinguish question-author wording from answer/comment wording. Review fresh rejected-source samples before claiming recall; reindexing retained data cannot reveal all old false negatives. Keep duplicate-connected groups, revision families, and calibration examples outside any future held-out benchmark. Do not spend API calls. Keep all mining work directories' combined archive/database/index allocation within 10 GB; do not grant each directory a separate 10 GB allowance.
 
-After this audit, the next implementation phase can define an LLM extraction contract and deterministic Unicode/LaTeX evidence resolution, followed by independent QA and a leakage-safe held-out benchmark. Those are beyond this source-mining phase.
+The extraction review contract now exists in `extraction.py`. The next phase can add its model adapter and deterministic Unicode/LaTeX evidence resolution, followed by independent QA and a leakage-safe held-out benchmark. Those are beyond this source-mining phase.
