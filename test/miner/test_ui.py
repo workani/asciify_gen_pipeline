@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import sqlite3
 import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
@@ -13,7 +14,7 @@ from unittest import mock
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from se_miner import dashboard, pipeline as pipeline_module
+from se_miner import dashboard, workers as workers_module
 from se_miner.cli import main, resume_command
 from se_miner.common import Budget
 from se_miner.dashboard import (Glyphs, Palette, bar, final_summary, fit, frame, human_bytes,
@@ -371,6 +372,14 @@ class RenderTests(unittest.TestCase):
         self.assertIn("ui-fixture", line)
         self.assertFalse(line.rstrip().endswith("/tmp/m"))
 
+    def test_header_reports_a_worker_count_only_when_it_explains_the_rate(self):
+        self.assertNotIn("workers", self.plain(100, 26)[1])
+        started(self.state, workers=8)
+        line = self.plain(100, 26)[1]
+        self.assertIn("8 workers", line)
+        # It outranks the paths, so a narrow terminal keeps the explanation.
+        self.assertIn("8 workers", self.plain(46, 26)[1])
+
     def test_indeterminate_bar_animates_and_stays_in_width(self):
         shapes = {indeterminate(20, tick, Glyphs(True)) for tick in range(12)}
         self.assertGreater(len(shapes), 3)
@@ -617,7 +626,7 @@ class CommandTests(unittest.TestCase):
 
     def test_interrupt_preserves_checkpoints_and_shows_the_resume_command(self):
         calls = {"n": 0}
-        real = pipeline_module.classify
+        real = workers_module.classify
 
         def interrupting(*args, **kwargs):
             calls["n"] += 1
@@ -625,8 +634,12 @@ class CommandTests(unittest.TestCase):
                 raise KeyboardInterrupt
             return real(*args, **kwargs)
 
-        with mock.patch.object(pipeline_module, "classify", interrupting):
-            code, out, err = self.run_cli(self.base(), stderr_tty=True)
+        # --workers 1 classifies in this process, which is what makes the
+        # interrupt land on a known row. A pool would raise in a child, where
+        # this patch does not exist; that path is covered by the equivalence
+        # test below, which is the one that has to hold for every setting.
+        with mock.patch.object(workers_module, "classify", interrupting):
+            code, out, err = self.run_cli(self.base("--workers", "1"), stderr_tty=True)
         self.assertEqual(code, 130)
         plain = ANSI.sub("", err)
         self.assertIn("Miner PAUSED", plain)
@@ -641,6 +654,35 @@ class CommandTests(unittest.TestCase):
         posts = next(c for c in state["checkpoints"] if c["phase"] == "discover_posts")
         self.assertFalse(posts["complete"])
         self.assertLessEqual(posts["ordinal"], 20)
+
+    def test_workers_do_not_change_verdicts_checkpoints_or_documents(self):
+        """The invariant the whole parallel path rests on: worker count is a
+        throughput setting, so the database it produces must be identical."""
+        contents = {}
+        for workers in ("1", "3"):
+            work = self.root / ("work-" + workers)
+            argv = ["run", str(self.manifest_path), "--work-dir", str(work),
+                    "--batch", "7", "--workers", workers]
+            code, out, _ = self.run_cli(argv)
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(out)["candidates"], 30)
+            db = sqlite3.connect(work / "candidates.sqlite")
+            contents[workers] = {
+                table: db.execute("SELECT * FROM %s ORDER BY 1,2,3" % table).fetchall()
+                for table in ("hits", "candidates", "routing", "documents", "accepted", "rejected")}
+            contents[workers]["checkpoints"] = db.execute(
+                "SELECT site,phase,ordinal,complete FROM checkpoints ORDER BY site,phase").fetchall()
+            db.close()
+        self.assertTrue(contents["1"]["hits"])
+        for table, rows in contents["1"].items():
+            self.assertEqual(rows, contents["3"][table], table + " differs between worker counts")
+
+    def test_workers_rejects_a_value_that_cannot_classify_anything(self):
+        code, _, err = self.run_cli(self.base("--workers", "0"))
+        self.assertEqual(code, 2)
+        self.assertIn("positive count or 'auto'", err)
+        # And it fails before the work directory is created, not mid-scan.
+        self.assertFalse(self.work.exists())
 
     def test_max_rows_pause_reports_as_paused_and_keeps_exit_code_two(self):
         code, out, err = self.run_cli(self.base("--max-rows", "10"), stderr_tty=True)

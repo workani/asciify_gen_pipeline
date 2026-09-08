@@ -39,6 +39,7 @@ class RunState:
         self.finished = None
         self.status = "starting"
         self.release = self.manifest = self.work_dir = None
+        self.workers = 1
         self.reason = None
         self.warnings = {}
         self.resumed = False
@@ -108,6 +109,7 @@ class RunState:
 
     def _on_run_started(self, ev):
         self.release, self.manifest = ev.get("release"), ev.get("manifest")
+        self.workers = ev.get("workers") or 1
         self.work_dir = ev.get("work_dir")
         self.storage["limit"] = ev.get("budget_bytes")
         if ev.get("work_bytes") is not None:
@@ -361,6 +363,7 @@ class RunState:
                     active = {"site": host, **self._stage_view(stage, now)}
             elapsed = (self.finished or now) - self.started
             return {"release": self.release, "manifest": self.manifest, "work_dir": self.work_dir,
+                    "workers": self.workers,
                     "status": self.status, "elapsed": elapsed, "started_wall": self.started_wall,
                     "reason": self.reason, "warnings": dict(self.warnings), "resumed": self.resumed,
                     "rows_this_run": self.rows_this_run, "sites": sites, "active": active,

@@ -19,6 +19,10 @@ python3 scripts/mine.py run docs/miner/pilot.manifest.json
 python3 scripts/mine.py run docs/miner/pilot.manifest.json \
   --only-site tex.stackexchange.com --work-dir .miner-tex
 
+# Classify rows across processes. Defaults to one worker per core; `1` keeps
+# classification in-process. See "Throughput and --workers" below.
+python3 scripts/mine.py run docs/miner/pilot.manifest.json --workers 4
+
 # Inspect coverage and storage, including incomplete phases.
 python3 scripts/mine.py status
 
@@ -149,6 +153,48 @@ Each phase saves its row ordinal and data in the same SQLite transaction. Resump
 The remote reader requests 4 MiB blocks and keeps at most four blocks in its in-memory LRU. Retries are bounded, short transfers are rejected/retried, conditional requests detect changes, and Range/Content-Range responses must match exactly. No per-post API or website crawling calls occur. Each reopened archive currently re-probes its metadata; archive block caches are memory-only and not shared across passes.
 
 If byte ranges or stable HTTP validators are unavailable, one compressed archive is cached with streaming size checks and a SHA-256 digest. A source that cannot fit the remaining budget pauses safely. Completed site cache files are reclaimed. The system never assumes it can pipe an arbitrary 7z file through a non-seekable downloader.
+
+## Throughput and `--workers`
+
+Discovery is dominated by `classify()`, which is pure-Python regex work over
+every row's prose: roughly **1.7 ms per post**, against ~0.025 ms for everything
+the parent does with that row (Expat, the routing insert, moving fields to a
+worker and a verdict back). A single-process run is therefore CPU-bound on one
+core, and a scan's row rate is very close to one core's classification rate --
+on a budget VPS vCPU that is a few hundred rows per second, and the low byte
+rate a dashboard reports alongside it is demand, not a transport limit.
+
+`--workers` classifies rows in a pool of processes. `classify()` is a pure
+function of one row's fields, so a worker returns a verdict and nothing else:
+the parent still owns SQLite on one thread and still applies verdicts in source
+order. **Worker count is a throughput setting, never a rule setting.** It is
+deliberately absent from the work directory's pinned contract, so a run may be
+paused at one setting and resumed at another; the database and every checkpoint
+ordinal are identical either way, and `test_ui.py` asserts exactly that.
+
+Measured on one `discover_posts` pass over 12,000 real posts, on an 8-core
+Apple Silicon laptop (four performance cores, four efficiency cores):
+
+| `--workers` | rows/s | speedup |
+| --- | --- | --- |
+| 1 | 427 | 1.00x |
+| 2 | 895 | 2.10x |
+| 4 | 1,579 | 3.70x |
+| 8 | 2,280 | 5.34x |
+
+Two workers exceed 2x because the parent's own per-row work moves off the
+classifying core. Eight fall short of 8x because half of this machine's cores
+are efficiency cores; expect closer to linear on homogeneous vCPUs.
+
+Scaling stops where the source does. The parent can feed dozens of workers, but
+the remote reader fetches one 4 MiB block at a time with no read-ahead, so past
+roughly four workers on a remote archive the range request, not classification,
+becomes the limit. A local or pre-staged archive has no such ceiling.
+
+Workers are spawned, not forked, on every platform: the live dashboard is
+already running its own thread by the time a pool is built, and forking a
+multithreaded process inherits locks no thread will release. The cost is one
+import of the rule modules per worker, once per run.
 
 ## The 10 GB cap
 

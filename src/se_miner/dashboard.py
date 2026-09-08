@@ -166,7 +166,11 @@ def _header(s, w, g, p):
     # Keep the release whole; shorten then drop the paths instead of leaving a
     # meaningless fragment like ".../generator/.m" on screen.
     text, sep, avail = s["release"] or "unpinned", "  ·  ", w - 3
-    for value in (s["manifest"], s["work_dir"]):
+    # Worker count before the paths: when the line has to be trimmed, the fact
+    # that eight processes are classifying explains the row rate on screen and
+    # a work directory the operator typed themselves does not.
+    workers = "%d workers" % s.get("workers", 1) if s.get("workers", 1) > 1 else None
+    for value in (workers, s["manifest"], s["work_dir"]):
         if not value:
             continue
         for candidate in (str(value), str(value).rsplit("/", 1)[-1]):

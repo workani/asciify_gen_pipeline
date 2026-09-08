@@ -17,6 +17,7 @@ from .inspection import export_rows, report, search
 from .pipeline import Pipeline, inventory
 from .storage import Store, encode, read_db, thread, writer_lock
 from .transport import Sources, request
+from .workers import Classifier, resolve_workers
 from . import searchindex
 
 
@@ -26,7 +27,7 @@ def emit(value):
 
 # Shared so the parser and the resume command can never drift apart.
 DEFAULTS = {"work_dir": ".miner-work", "budget_gb": 10.0, "threshold": 3,
-            "rejected_sample": 100, "batch": 10000}
+            "rejected_sample": 100, "batch": 10000, "workers": "auto"}
 
 
 def parser():
@@ -46,6 +47,11 @@ def parser():
         s.add_argument("--only-site", metavar="HOST", action="append",
                        help="Restrict this run to these manifest sites; repeatable. The manifest and the pinned contract stay untouched, so another machine can mine the remaining sites into its own work directory")
         if command == "run":
+            # Classification is pure, so this changes only how fast the same
+            # verdicts arrive. It is absent from the pinned contract for that
+            # reason: a resume may raise or lower it freely.
+            s.add_argument("--workers", default=DEFAULTS["workers"], metavar="N",
+                           help="Processes classifying rows in parallel, or 'auto' for one per core (default). Verdicts and checkpoints are identical at any setting; use 1 to classify in-process")
             s.add_argument("--max-rows", type=int, help="Bound new rows for an ingestion smoke run; resumable, no model calls")
             s.add_argument("--no-ui", action="store_true", help="Never draw the live dashboard; stream JSON progress events to stderr")
             s.add_argument("--events", metavar="PATH", help="Where to journal progress events for scripts/miner-web.py; defaults to <work-dir>-events.jsonl, outside the storage budget")
@@ -132,7 +138,7 @@ def select_sites(manifest, wanted):
 def resume_command(args):
     """The exact command that continues this work directory, minus any row bound."""
     parts = ["python3", "scripts/mine.py", "run", args.manifest]
-    for flag in ("work_dir", "budget_gb", "threshold", "rejected_sample", "batch"):
+    for flag in ("work_dir", "budget_gb", "threshold", "rejected_sample", "batch", "workers"):
         value, default = getattr(args, flag), DEFAULTS[flag]
         flag = "--" + flag.replace("_", "-")
         if value != default:
@@ -232,6 +238,11 @@ def is_pause(error):
 def ingest(args):
     if args.threshold < 1 or args.batch < 1 or args.rejected_sample < 0:
         raise MinerError("threshold/batch must be positive; rejected sample must be nonnegative")
+    # Resolved before the writer lock and before any source is opened: a typo in
+    # --workers must not cost a process that has already started mining.
+    # Preflight reads table headers and classifies nothing.
+    workers = resolve_workers(args.workers) if args.command == "run" else 1
+    classifier = Classifier(args.threshold, workers)
     live = args.command == "run" and dashboard.ui_available(sys.stderr, getattr(args, "no_ui", False))
     # On by default: a viewer that needs a flag to see the run is a viewer that
     # silently shows a stale one. Truncated per run, so it replays this run only.
@@ -283,9 +294,9 @@ def ingest(args):
                                       work_dir=display_path(budget.root),
                                       sites=[s["site"] for s in selected],
                                       budget_bytes=budget.limit, work_bytes=budget.used(),
-                                      checkpoints=checkpoints))
+                                      checkpoints=checkpoints, workers=workers))
                         pipe = Pipeline(store, sources, args.threshold, args.rejected_sample,
-                                        args.batch, observe, args.max_rows)
+                                        args.batch, observe, args.max_rows, classifier=classifier)
                         # Retained work from earlier runs counts from the first frame.
                         pipe.emit_metrics()
                         for site in selected: pipe.run_site(site)
@@ -324,6 +335,9 @@ def ingest(args):
                               message=str(error), reason=str(error)))
             raise
     finally:
+        # Workers outlive neither a clean finish nor a Ctrl-C: the pool is the
+        # only thing here that would otherwise keep the process alive.
+        classifier.close()
         if journal is not None:
             journal.close()
         if ui:
